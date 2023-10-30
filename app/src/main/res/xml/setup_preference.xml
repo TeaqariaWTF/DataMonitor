@@ -2,10 +2,14 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <Preference
+        android:layout="@layout/layout_setup_header"/>
+
     <com.drnoob.datamonitor.core.base.PreferenceHeader
         android:title="@string/title_setup"
         app:allowDividerBelow="false"
-        app:allowDividerAbove="false">
+        app:allowDividerAbove="false"
+        app:iconSpaceReserved="false">
 
         <com.drnoob.datamonitor.core.base.Preference
             android:icon="@drawable/ic_widget"
@@ -27,9 +31,9 @@
     </com.drnoob.datamonitor.core.base.PreferenceHeader>
 
     <com.drnoob.datamonitor.core.base.PreferenceHeader
-        android:title="@string/title_configure"
         app:allowDividerAbove="false"
-        app:allowDividerBelow="false">
+        app:allowDividerBelow="false"
+        app:iconSpaceReserved="false">
 
         <com.drnoob.datamonitor.core.base.PreferenceCategory
             android:title="@string/setup_widget_title"
@@ -48,6 +52,12 @@
                 android:title="@string/setup_show_remaining_data"
                 app:iconSpaceReserved="false"
                 android:key="remaining_data_info"
+                android:defaultValue="true"/>
+
+            <com.drnoob.datamonitor.core.base.SwitchPreferenceCompat
+                android:title="@string/setup_show_wifi_usage"
+                app:iconSpaceReserved="false"
+                android:key="widget_show_wifi_usage"
                 android:defaultValue="true"/>
 
             <com.drnoob.datamonitor.core.base.Preference
@@ -83,6 +93,41 @@
                 android:key="show_wifi_notification"
                 app:iconSpaceReserved="false"
                 android:defaultValue="true"/>
+
+            <com.drnoob.datamonitor.core.base.SwitchPreferenceCompat
+                android:title="@string/always_show_total"
+                android:summary="@string/always_show_total_summary"
+                android:key="always_show_total"
+                app:iconSpaceReserved="false"
+                android:defaultValue="true"/>
+
+            <com.drnoob.datamonitor.core.base.SwitchPreferenceCompat
+                android:title="@string/auto_hide_live_network"
+                android:summary="@string/auto_hide_live_network_summary"
+                android:key="auto_hide_network_speed"
+                app:iconSpaceReserved="false"
+                android:defaultValue="false"/>
+
+            <com.drnoob.datamonitor.core.base.SwitchPreferenceCompat
+                android:title="@string/combine_notifications"
+                android:summary="@string/combine_notifications_summary"
+                android:key="combine_notifications"
+                app:iconSpaceReserved="false"
+                android:defaultValue="false"/>
+
+            <com.drnoob.datamonitor.core.base.Preference
+                android:title="@string/combined_notification_icon"
+                app:iconSpaceReserved="false"
+                android:key="combined_notification_icon"
+                android:summary="@string/combined_notification_icon_summary"
+                app:isPreferenceVisible="false"
+                app:widgetLayout="@layout/preference_right_arrow"/>
+
+            <com.drnoob.datamonitor.core.base.SwitchPreferenceCompat
+                android:title="@string/lockscreen_notification"
+                android:key="lockscreen_notification"
+                app:iconSpaceReserved="false"
+                android:defaultValue="false"/>
 
         </com.drnoob.datamonitor.core.base.PreferenceCategory>
 
@@ -135,6 +180,21 @@
                 app:iconSpaceReserved="false"
                 app:widgetLayout="@layout/preference_right_arrow"
                 app:summary="@string/usage_reset_time_placeholder"/>
+
+            <com.drnoob.datamonitor.core.base.SwitchPreferenceCompat
+                android:title="@string/setup_auto_update_data_plan"
+                android:key="auto_update_data_plan"
+                app:iconSpaceReserved="false"
+                app:summary="@string/auto_update_data_plan_summary"
+                android:defaultValue="false"
+                app:isPreferenceVisible="false"/>
+
+            <com.drnoob.datamonitor.core.base.Preference
+                android:title="@string/exclude_apps"
+                android:key="exclude_apps"
+                app:iconSpaceReserved="false"
+                app:widgetLayout="@layout/preference_right_arrow"
+                app:summary="@string/exclude_apps_summary"/>
 
         </com.drnoob.datamonitor.core.base.PreferenceCategory>
 

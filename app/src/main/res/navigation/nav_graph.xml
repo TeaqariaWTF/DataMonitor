@@ -7,15 +7,14 @@
 
     <fragment
         android:id="@+id/bottom_menu_setup"
-        android:name="com.drnoob.datamonitor.ui.fragments.SetupFragment"
-        android:label="@string/setup"
-        tools:layout="@layout/fragment_setup" >
+        android:name="com.drnoob.datamonitor.ui.fragments.SetupFragment$SetupPreference"
+        android:label="@string/setup" >
     </fragment>
     <fragment
         android:id="@+id/bottom_menu_home"
         android:name="com.drnoob.datamonitor.ui.fragments.HomeFragment"
         android:label="@string/home"
-        tools:layout="@layout/fragment_home_test" >
+        tools:layout="@layout/fragment_home" >
     </fragment>
     <fragment
         android:id="@+id/bottom_menu_app_data_usage"

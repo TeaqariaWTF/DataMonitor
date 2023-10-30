@@ -19,27 +19,70 @@
 
 package com.drnoob.datamonitor.ui.fragments;
 
-import android.app.TimePickerDialog;
+import static com.drnoob.datamonitor.Common.cancelDataPlanNotification;
+import static com.drnoob.datamonitor.Common.dismissOnClick;
+import static com.drnoob.datamonitor.Common.setDataPlanNotification;
+import static com.drnoob.datamonitor.Common.setRefreshAlarm;
+import static com.drnoob.datamonitor.Common.showAlarmPermissionDeniedDialog;
+import static com.drnoob.datamonitor.core.Values.APP_DATA_LIMIT_FRAGMENT;
+import static com.drnoob.datamonitor.core.Values.DATA_LIMIT;
+import static com.drnoob.datamonitor.core.Values.DATA_PLAN_FRAGMENT;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_DAILY;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_DATE;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_HOUR;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_MIN;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_MONTHLY;
+import static com.drnoob.datamonitor.core.Values.DATA_TYPE;
+import static com.drnoob.datamonitor.core.Values.DATA_USAGE_ALERT;
+import static com.drnoob.datamonitor.core.Values.DATA_USAGE_WARNING_SHOWN;
+import static com.drnoob.datamonitor.core.Values.DATA_WARNING_TRIGGER_LEVEL;
+import static com.drnoob.datamonitor.core.Values.EXCLUDE_APPS_FRAGMENT;
+import static com.drnoob.datamonitor.core.Values.GENERAL_FRAGMENT_ID;
+import static com.drnoob.datamonitor.core.Values.ICON_DATA_USAGE;
+import static com.drnoob.datamonitor.core.Values.ICON_NETWORK_SPEED;
+import static com.drnoob.datamonitor.core.Values.NETWORK_SIGNAL_CHANNEL_ID;
+import static com.drnoob.datamonitor.core.Values.NETWORK_SIGNAL_NOTIFICATION_GROUP;
+import static com.drnoob.datamonitor.core.Values.NETWORK_SIGNAL_NOTIFICATION_ID;
+import static com.drnoob.datamonitor.core.Values.NOTIFICATION_REFRESH_INTERVAL;
+import static com.drnoob.datamonitor.core.Values.NOTIFICATION_REFRESH_INTERVAL_SUMMARY;
+import static com.drnoob.datamonitor.core.Values.NOTIFICATION_WIFI;
+import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
+import static com.drnoob.datamonitor.core.Values.WIDGET_REFRESH_INTERVAL;
+import static com.drnoob.datamonitor.core.Values.WIDGET_REFRESH_INTERVAL_SUMMARY;
+import static com.drnoob.datamonitor.utils.NetworkStatsHelper.formatData;
+import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceMobileDataUsage;
+
+import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.TimePicker;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
@@ -51,87 +94,99 @@ import com.drnoob.datamonitor.core.base.DatePicker;
 import com.drnoob.datamonitor.core.base.Preference;
 import com.drnoob.datamonitor.core.base.SwitchPreferenceCompat;
 import com.drnoob.datamonitor.ui.activities.ContainerActivity;
+import com.drnoob.datamonitor.ui.activities.MainActivity;
+import com.drnoob.datamonitor.utils.CompoundNotification;
 import com.drnoob.datamonitor.utils.DataUsageMonitor;
 import com.drnoob.datamonitor.utils.LiveNetworkMonitor;
 import com.drnoob.datamonitor.utils.NotificationService;
 import com.drnoob.datamonitor.utils.NotificationService.NotificationUpdater;
+import com.drnoob.datamonitor.utils.VibrationUtils;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.slider.LabelFormatter;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.android.material.tabs.TabLayout;
-import com.google.android.material.textfield.TextInputEditText;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.text.ParseException;
 
-import static com.drnoob.datamonitor.Common.dismissOnClick;
-import static com.drnoob.datamonitor.core.Values.APP_DATA_LIMIT_FRAGMENT;
-import static com.drnoob.datamonitor.core.Values.DATA_LIMIT;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_DAILY;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_DATE;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_HOUR;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_MIN;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_MONTHLY;
-import static com.drnoob.datamonitor.core.Values.DATA_TYPE;
-import static com.drnoob.datamonitor.core.Values.DATA_USAGE_ALERT;
-import static com.drnoob.datamonitor.core.Values.DATA_USAGE_WARNING_SHOWN;
-import static com.drnoob.datamonitor.core.Values.DATA_WARNING_TRIGGER_LEVEL;
-import static com.drnoob.datamonitor.core.Values.GENERAL_FRAGMENT_ID;
-import static com.drnoob.datamonitor.core.Values.LIMIT;
-import static com.drnoob.datamonitor.core.Values.NOTIFICATION_REFRESH_INTERVAL;
-import static com.drnoob.datamonitor.core.Values.NOTIFICATION_REFRESH_INTERVAL_SUMMARY;
-import static com.drnoob.datamonitor.core.Values.NOTIFICATION_WIFI;
-import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
-import static com.drnoob.datamonitor.core.Values.WIDGET_REFRESH_INTERVAL;
-import static com.drnoob.datamonitor.core.Values.WIDGET_REFRESH_INTERVAL_SUMMARY;
-import static com.drnoob.datamonitor.utils.NetworkStatsHelper.formatData;
-import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceMobileDataUsage;
-import static com.drnoob.datamonitor.utils.VibrationUtils.hapticMinor;
-
 public class SetupFragment extends Fragment {
-
-    private static final String TAG = SetupFragment.class.getSimpleName();
     private static Context mContext;
 
     public SetupFragment() {
         // Required empty public constructor
     }
 
-    @Override
-    public void onAttach(@NonNull @NotNull Context context) {
-        super.onAttach(context);
-        mContext = context;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        View view = inflater.inflate(R.layout.fragment_setup, container, false);
-        return view;
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-    }
-
     public static class SetupPreference extends PreferenceFragmentCompat {
         private static final String TAG = SetupPreference.class.getSimpleName();
+
         private Preference mSetupWidget, mWidgetRefreshInterval, mNotificationRefreshInterval,
-                mAddDataPlan, mUsageResetTime, mWidgetRefresh, mDataWarningTrigger, mAppDataLimit;
-        private SwitchPreferenceCompat mSetupNotification, mRemainingDataInfo, mShowMobileData, mShowWifi,
-                mShowDataWarning, mNetworkSignalNotification;
+                mAddDataPlan, mUsageResetTime, mWidgetRefresh, mDataWarningTrigger, mAppDataLimit,
+                mCombinedNotificationIcon, mExcludeApps;
+        private SwitchPreferenceCompat mSetupNotification, mRemainingDataInfo, mShowWifiWidget,
+                mShowMobileData, mShowWifi, mShowDataWarning, mNetworkSignalNotification,
+                mAutoHideNetworkSpeed, mCombineNotifications, mLockscreenNotifications, mAlwaysShowTotal,
+                mAutoUpdateDataPlan;
         private Snackbar snackbar;
+        private Long planStartDateMillis, planEndDateMillis;
+        private Intent liveNetworkMonitorIntent;
+        private ActivityResultLauncher<Intent> dataPlanLauncher;
+
+        @Override
+        public void onAttach(@NonNull Context context) {
+            super.onAttach(context);
+            mContext = context;
+        }
+
+        @Override
+        public void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+        }
+
+        @Override
+        public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+            super.onViewCreated(view, savedInstanceState);
+            dataPlanLauncher = registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+                        @Override
+                        public void onActivityResult(ActivityResult result) {
+                            if (result.getResultCode() == Activity.RESULT_OK) {
+                                snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                                getString(R.string.label_data_plan_saved), Snackbar.LENGTH_SHORT)
+                                        .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                                updateResetData();
+                                refreshDataPlanSettingsVisibility();
+                                if (PreferenceManager.getDefaultSharedPreferences(requireContext())
+                                        .getString(DATA_RESET, "null").equals(DATA_RESET_CUSTOM)) {
+                                    if (PreferenceManager.getDefaultSharedPreferences(requireContext())
+                                            .getBoolean("auto_update_data_plan", false)) {
+                                        setRefreshAlarm(requireContext());
+                                    }
+                                    else {
+                                        setDataPlanNotification(requireContext());
+                                    }
+                                }
+                                dismissOnClick(snackbar);
+                                snackbar.show();
+                                AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
+                                int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(getContext(), DataUsageWidget.class));
+                                Intent intent = new Intent(getContext(), DataUsageWidget.class);
+                                intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+                                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+
+                                boolean updateNotification = PreferenceManager.getDefaultSharedPreferences(getContext()).getBoolean("setup_notification", false);
+                                if (updateNotification) {
+                                    Intent notificationIntent = new Intent(getContext(), NotificationUpdater.class);
+                                    getContext().sendBroadcast(notificationIntent);
+                                }
+
+                                getContext().sendBroadcast(intent);
+                            }
+                        }
+                    }
+            );
+        }
 
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -145,6 +200,8 @@ public class SetupFragment extends Fragment {
             mWidgetRefresh = (Preference) findPreference("refresh_widget");
             mDataWarningTrigger = (Preference) findPreference("data_warning_trigger_level");
             mAppDataLimit = (Preference) findPreference("app_data_limit");
+            mCombinedNotificationIcon = (Preference) findPreference("combined_notification_icon");
+            mExcludeApps = (Preference) findPreference("exclude_apps");
 
             mSetupNotification = (SwitchPreferenceCompat) findPreference("setup_notification");
             mNetworkSignalNotification = (SwitchPreferenceCompat) findPreference("network_signal_notification");
@@ -152,6 +209,14 @@ public class SetupFragment extends Fragment {
             mShowMobileData = (SwitchPreferenceCompat) findPreference("show_mobile_data_notification");
             mShowWifi = (SwitchPreferenceCompat) findPreference("show_wifi_notification");
             mShowDataWarning = (SwitchPreferenceCompat) findPreference("data_usage_alert");
+            mAutoHideNetworkSpeed = (SwitchPreferenceCompat) findPreference("auto_hide_network_speed");
+            mShowWifiWidget = (SwitchPreferenceCompat) findPreference("widget_show_wifi_usage");
+            mCombineNotifications = (SwitchPreferenceCompat) findPreference("combine_notifications");
+            mLockscreenNotifications = (SwitchPreferenceCompat) findPreference("lockscreen_notification");
+            mAlwaysShowTotal = (SwitchPreferenceCompat) findPreference("always_show_total");
+            mAutoUpdateDataPlan = (SwitchPreferenceCompat) findPreference("auto_update_data_plan");
+
+            liveNetworkMonitorIntent = new Intent(getContext(), LiveNetworkMonitor.class);
 
 
             int widgetRefreshInterval = PreferenceManager.getDefaultSharedPreferences(getContext())
@@ -211,28 +276,50 @@ public class SetupFragment extends Fragment {
                     String.valueOf(PreferenceManager.getDefaultSharedPreferences(getContext()).
                             getInt("data_warning_trigger_level", 85))));
 
-
             updateResetData();
+            refreshDataPlanSettingsVisibility();
+
+            mCombinedNotificationIcon.setVisible(PreferenceManager.getDefaultSharedPreferences(getContext())
+                    .getBoolean("combine_notifications", false));
 
             mSetupNotification.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(androidx.preference.Preference preference) {
-                    boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext()).getBoolean("setup_notification", false);
-                    if (isChecked) {
-                        getContext().startService(new Intent(getContext(), NotificationService.class));
-                        Log.d(TAG, "onPreferenceClick: Notification started");
-                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                getString(R.string.label_notification_enabled), Snackbar.LENGTH_SHORT)
-                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
-                    } else {
-                        getContext().stopService(new Intent(getContext(), NotificationService.class));
-                        Log.d(TAG, "onPreferenceClick: Notification stopped");
-                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                getString(R.string.notification_disabled), Snackbar.LENGTH_SHORT)
-                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                    AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                        showAlarmPermissionDeniedDialog(requireContext());
+                        mSetupNotification.setChecked(false);
                     }
-                    dismissOnClick(snackbar);
-                    snackbar.show();
+                    else {
+                        boolean isCombinedNotifiationEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                .getBoolean("combine_notifications", false);
+                        if (isCombinedNotifiationEnabled) {
+                            snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                            getString(R.string.error_combine_notifications_enabled),
+                                            Snackbar.LENGTH_SHORT)
+                                    .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                            mSetupNotification.setChecked(true);
+                        }
+                        else {
+                            boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext()).getBoolean("setup_notification", false);
+                            if (isChecked) {
+                                getContext().startService(new Intent(getContext(), NotificationService.class));
+                                Log.d(TAG, "onPreferenceClick: Notification started");
+                                snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                                getString(R.string.label_notification_enabled), Snackbar.LENGTH_SHORT)
+                                        .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                            }
+                            else {
+                                getContext().stopService(new Intent(getContext(), NotificationService.class));
+                                Log.d(TAG, "onPreferenceClick: Notification stopped");
+                                snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                                getString(R.string.notification_disabled), Snackbar.LENGTH_SHORT)
+                                        .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                            }
+                        }
+                        dismissOnClick(snackbar);
+                        snackbar.show();
+                    }
                     return false;
                 }
             });
@@ -240,19 +327,32 @@ public class SetupFragment extends Fragment {
             mNetworkSignalNotification.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(androidx.preference.Preference preference) {
-                    boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext()).getBoolean("network_signal_notification", false);
-                    if (isChecked) {
-                        getContext().startService(new Intent(getContext(), LiveNetworkMonitor.class));
-                        Log.d(TAG, "onPreferenceClick: Notification started");
+                    boolean isCombinedNotifiationEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                            .getBoolean("combine_notifications", false);
+                    if (isCombinedNotifiationEnabled) {
                         snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                getString(R.string.label_network_signal_notification_enabled), Snackbar.LENGTH_SHORT)
+                                        getString(R.string.error_combine_notifications_enabled),
+                                        Snackbar.LENGTH_SHORT)
                                 .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
-                    } else {
-                        getContext().stopService(new Intent(getContext(), LiveNetworkMonitor.class));
-                        Log.d(TAG, "onPreferenceClick: Notification stopped");
-                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                getString(R.string.label_network_signal_notification_disabled), Snackbar.LENGTH_SHORT)
-                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                        mNetworkSignalNotification.setChecked(true);
+                    }
+                    else {
+                        boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext()).getBoolean("network_signal_notification", false);
+                        if (isChecked) {
+                            getContext().startService(new Intent(getContext(), LiveNetworkMonitor.class));
+//                        getContext().startService(liveNetworkMonitorIntent);
+                            Log.d(TAG, "onPreferenceClick: Notification started");
+                            snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                            getString(R.string.label_network_signal_notification_enabled), Snackbar.LENGTH_SHORT)
+                                    .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                        } else {
+                            getContext().stopService(new Intent(getContext(), LiveNetworkMonitor.class));
+//                        getContext().stopService(liveNetworkMonitorIntent);
+                            Log.d(TAG, "onPreferenceClick: Notification stopped");
+                            snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                            getString(R.string.label_network_signal_notification_disabled), Snackbar.LENGTH_SHORT)
+                                    .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                        }
                     }
                     dismissOnClick(snackbar);
                     snackbar.show();
@@ -266,6 +366,14 @@ public class SetupFragment extends Fragment {
                     BottomSheetDialog dialog = new BottomSheetDialog(getContext(), R.style.BottomSheet);
                     View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.layout_widget_setup, null);
                     dialog.setContentView(dialogView);
+                    dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                        @Override
+                        public void onShow(DialogInterface dialogInterface) {
+                            BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+                            FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                            BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+                        }
+                    });
                     dialog.show();
                     return false;
                 }
@@ -365,6 +473,14 @@ public class SetupFragment extends Fragment {
                     });
 
                     dialog.setContentView(dialogView);
+                    dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                        @Override
+                        public void onShow(DialogInterface dialogInterface) {
+                            BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+                            FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                            BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+                        }
+                    });
                     dialog.show();
                     return false;
                 }
@@ -373,8 +489,115 @@ public class SetupFragment extends Fragment {
             mNotificationRefreshInterval.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(androidx.preference.Preference preference) {
+                    boolean isCombinedNotificationEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                            .getBoolean("combine_notifications", false);
+//                    if (isCombinedNotificationEnabled) {
+//                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+//                                        getString(R.string.error_interval_combined_notifications_enabled), Snackbar.LENGTH_LONG)
+//                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+//                        dismissOnClick(snackbar);
+//                        snackbar.show();
+//                    }
+//                    else {
+//                        BottomSheetDialog dialog = new BottomSheetDialog(getContext(), R.style.BottomSheet);
+//                        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.layout_refresh_interval, null);
+//                        RadioGroup intervalGroup = dialogView.findViewById(R.id.refresh_interval_group);
+//                        ConstraintLayout footer = dialogView.findViewById(R.id.footer);
+//                        TextView cancel = footer.findViewById(R.id.cancel);
+//                        TextView ok = footer.findViewById(R.id.ok);
+//
+//                        int elapsedTIme = PreferenceManager.getDefaultSharedPreferences(getContext())
+//                                .getInt(NOTIFICATION_REFRESH_INTERVAL, 60000);
+//                        switch (elapsedTIme) {
+//                            case 60000:
+//                                intervalGroup.check(R.id.interval_1_min);
+//                                break;
+//
+//                            case 120000:
+//                                intervalGroup.check(R.id.interval_2_min);
+//                                break;
+//
+//                            case 300000:
+//                                intervalGroup.check(R.id.interval_5_min);
+//                                break;
+//
+//                            case 600000:
+//                                intervalGroup.check(R.id.interval_10_min);
+//                                break;
+//
+//                            case 900000:
+//                                intervalGroup.check(R.id.interval_15_min);
+//                                break;
+//                        }
+//
+//                        cancel.setOnClickListener(new View.OnClickListener() {
+//                            @Override
+//                            public void onClick(View v) {
+//                                dialog.dismiss();
+//                            }
+//                        });
+//
+//                        ok.setOnClickListener(new View.OnClickListener() {
+//                            @Override
+//                            public void onClick(View v) {
+//                                int elapsedTime = 60000;
+//                                String refreshGap = getString(R.string.option_1_min);
+//                                switch (intervalGroup.getCheckedRadioButtonId()) {
+//                                    case R.id.interval_1_min:
+//                                        elapsedTime = 60000;
+//                                        refreshGap = getString(R.string.option_1_min);
+//                                        break;
+//
+//                                    case R.id.interval_2_min:
+//                                        elapsedTime = 120000;
+//                                        refreshGap = getString(R.string.option_2_min);
+//                                        break;
+//
+//                                    case R.id.interval_5_min:
+//                                        elapsedTime = 300000;
+//                                        refreshGap = getString(R.string.option_5_min);
+//                                        break;
+//
+//                                    case R.id.interval_10_min:
+//                                        elapsedTime = 600000;
+//                                        refreshGap = getString(R.string.option_10_min);
+//                                        break;
+//
+//                                    case R.id.interval_15_min:
+//                                        elapsedTime = 900000;
+//                                        refreshGap = getString(R.string.option_15_min);
+//                                        break;
+//                                }
+//                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putInt(NOTIFICATION_REFRESH_INTERVAL,
+//                                        elapsedTime).apply();
+//                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putString(NOTIFICATION_REFRESH_INTERVAL_SUMMARY,
+//                                        refreshGap).apply();
+//                                snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+//                                                getString(R.string.label_notification_refresh_interval_change, refreshGap), Snackbar.LENGTH_SHORT)
+//                                        .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+//                                dialog.dismiss();
+//                                mNotificationRefreshInterval.setSummary(refreshGap);
+//                                dismissOnClick(snackbar);
+//                                snackbar.show();
+//                                Intent i = new Intent(getContext(), NotificationUpdater.class);
+//                                getContext().sendBroadcast(i);
+//                            }
+//                        });
+//
+//                        dialog.setContentView(dialogView);
+//                        dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+//                            @Override
+//                            public void onShow(DialogInterface dialogInterface) {
+//                                BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+//                                FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+//                                BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+//                            }
+//                        });
+//                        dialog.show();
+//                    }
+
                     BottomSheetDialog dialog = new BottomSheetDialog(getContext(), R.style.BottomSheet);
-                    View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.layout_refresh_interval, null);
+                    View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.layout_notification_refresh_interval, null);
                     RadioGroup intervalGroup = dialogView.findViewById(R.id.refresh_interval_group);
                     ConstraintLayout footer = dialogView.findViewById(R.id.footer);
                     TextView cancel = footer.findViewById(R.id.cancel);
@@ -382,7 +605,29 @@ public class SetupFragment extends Fragment {
 
                     int elapsedTIme = PreferenceManager.getDefaultSharedPreferences(getContext())
                             .getInt(NOTIFICATION_REFRESH_INTERVAL, 60000);
+
+                    if (!isCombinedNotificationEnabled) {
+                        intervalGroup.findViewById(R.id.interval_1_sec).setVisibility(View.GONE);
+                        intervalGroup.findViewById(R.id.interval_15_sec).setVisibility(View.GONE);
+                        intervalGroup.findViewById(R.id.interval_30_sec).setVisibility(View.GONE);
+                        if (elapsedTIme < 60000) {
+                            elapsedTIme = 60000;
+                        }
+                    }
+
                     switch (elapsedTIme) {
+                        case 1000:
+                            intervalGroup.check(R.id.interval_1_sec);
+                            break;
+
+                        case 15000:
+                            intervalGroup.check(R.id.interval_15_sec);
+                            break;
+
+                        case 30000:
+                            intervalGroup.check(R.id.interval_30_sec);
+                            break;
+
                         case 60000:
                             intervalGroup.check(R.id.interval_1_min);
                             break;
@@ -417,6 +662,21 @@ public class SetupFragment extends Fragment {
                             int elapsedTime = 60000;
                             String refreshGap = getString(R.string.option_1_min);
                             switch (intervalGroup.getCheckedRadioButtonId()) {
+                                case R.id.interval_1_sec:
+                                    elapsedTime = 1000;
+                                    refreshGap = getString(R.string.option_1_sec);
+                                    break;
+
+                                case R.id.interval_15_sec:
+                                    elapsedTime = 15000;
+                                    refreshGap = getString(R.string.option_15_sec);
+                                    break;
+
+                                case R.id.interval_30_sec:
+                                    elapsedTime = 30000;
+                                    refreshGap = getString(R.string.option_30_sec);
+                                    break;
+
                                 case R.id.interval_1_min:
                                     elapsedTime = 60000;
                                     refreshGap = getString(R.string.option_1_min);
@@ -447,18 +707,32 @@ public class SetupFragment extends Fragment {
                             PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putString(NOTIFICATION_REFRESH_INTERVAL_SUMMARY,
                                     refreshGap).apply();
                             snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                    getString(R.string.label_notification_refresh_interval_change, refreshGap), Snackbar.LENGTH_SHORT)
+                                            getString(R.string.label_notification_refresh_interval_change, refreshGap), Snackbar.LENGTH_SHORT)
                                     .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
                             dialog.dismiss();
                             mNotificationRefreshInterval.setSummary(refreshGap);
                             dismissOnClick(snackbar);
                             snackbar.show();
                             Intent i = new Intent(getContext(), NotificationUpdater.class);
-                            getContext().sendBroadcast(i);
+                            if (isCombinedNotificationEnabled) {
+//                                getContext().stopService(new Intent(getContext(), CompoundNotification.class));
+//                                getContext().startService(new Intent(getContext(), CompoundNotification.class));
+                            }
+                            else {
+                                getContext().sendBroadcast(i);
+                            }
                         }
                     });
 
                     dialog.setContentView(dialogView);
+                    dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                        @Override
+                        public void onShow(DialogInterface dialogInterface) {
+                            BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+                            FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                            BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+                        }
+                    });
                     dialog.show();
                     return false;
                 }
@@ -494,6 +768,19 @@ public class SetupFragment extends Fragment {
                     }
                     dismissOnClick(snackbar);
                     snackbar.show();
+                    return false;
+                }
+            });
+
+            mShowWifiWidget.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(androidx.preference.Preference preference) {
+                    AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
+                    int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(getContext(), DataUsageWidget.class));
+                    Intent intent = new Intent(getContext(), DataUsageWidget.class);
+                    intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+                    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+                    getContext().sendBroadcast(intent);
                     return false;
                 }
             });
@@ -591,123 +878,193 @@ public class SetupFragment extends Fragment {
                 }
             });
 
-            mAddDataPlan.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+            mAlwaysShowTotal.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(@NonNull androidx.preference.Preference preference) {
+                    Intent i = new Intent(getContext(), NotificationUpdater.class);
+                    getContext().sendBroadcast(i);
+                    return false;
+                }
+            });
+
+            mAutoUpdateDataPlan.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(@NonNull androidx.preference.Preference preference) {
+                    boolean isChecked = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                            .getBoolean("auto_update_data_plan", false);
+                    cancelDataPlanNotification(requireContext());
+                    if (isChecked) {
+                        setRefreshAlarm(requireContext());
+                    }
+                    else {
+                        setDataPlanNotification(requireContext());
+                    }
+                    return false;
+                }
+            });
+
+            mAutoHideNetworkSpeed.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(androidx.preference.Preference preference) {
-                    BottomSheetDialog dialog = new BottomSheetDialog(getContext(), R.style.BottomSheet);
-                    View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.layout_add_data_plan, null);
+                    boolean isCombinedNotificationEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                            .getBoolean("combine_notifications", false);
+                    if (!isCombinedNotificationEnabled) {
+                        boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                .getBoolean("auto_hide_network_speed", false);
+                        NotificationManagerCompat managerCompat = NotificationManagerCompat.from(getContext());
+                        if (!isChecked) {
+                            boolean isNetworkSpeedEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                    .getBoolean("network_signal_notification", false);
+                            if (isNetworkSpeedEnabled) {
+                                Intent activityIntent = new Intent(Intent.ACTION_MAIN);
+                                activityIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+                                activityIntent.setComponent(new ComponentName(getContext().getPackageName(),
+                                        MainActivity.class.getName()));
+                                PendingIntent activityPendingIntent = PendingIntent.getActivity(
+                                        getContext(), 0, activityIntent, PendingIntent.FLAG_IMMUTABLE);
+                                NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(),
+                                        NETWORK_SIGNAL_CHANNEL_ID);
+                                builder.setSmallIcon(R.drawable.ic_signal_kb_0);
+                                builder.setOngoing(true);
+                                builder.setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                                builder.setContentTitle(getString(R.string.network_speed_title, "0 KB/s"));
+                                builder.setStyle(new NotificationCompat.InboxStyle()
+                                        .addLine(getString(R.string.network_speed_download, "0 KB/s"))
+                                        .addLine(getString(R.string.network_speed_upload, "0 KB/s")));
+                                builder.setShowWhen(false);
+                                builder.setVisibility(NotificationCompat.VISIBILITY_SECRET);
+                                builder.setContentIntent(activityPendingIntent);
+                                builder.setAutoCancel(false);
+                                builder.setGroup(NETWORK_SIGNAL_NOTIFICATION_GROUP);
+                                managerCompat.notify(NETWORK_SIGNAL_NOTIFICATION_ID, builder.build());
+                            }
+                        }
+                        else {
+                            managerCompat.cancel(NETWORK_SIGNAL_NOTIFICATION_ID);
+                        }
+                    }
+                    return false;
+                }
+            });
 
-                    RadioGroup dataReset = dialogView.findViewById(R.id.data_reset);
-                    TextInputEditText dataLimitInput = dialogView.findViewById(R.id.data_limit);
-                    TabLayout dataTypeSwitcher = dialogView.findViewById(R.id.app_type_switcher);
+            mCombineNotifications.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(@NonNull androidx.preference.Preference preference) {
+                    boolean isDataMonitorNotificationEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                            .getBoolean("setup_notification", false);
+                    boolean isNetworkSpeedNotificationEnabled = PreferenceManager.getDefaultSharedPreferences(getContext())
+                            .getBoolean("network_signal_notification", false);
+                    if (isDataMonitorNotificationEnabled && isNetworkSpeedNotificationEnabled) {
+                        boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                .getBoolean("combine_notifications", false);
+                        if (isChecked) {
+                            mCombinedNotificationIcon.setVisible(true);
+                            // Stop both services and start combined one
+                            getContext().stopService(new Intent(getContext(), LiveNetworkMonitor.class));
+                            getContext().stopService(new Intent(getContext(), NotificationService.class));
+
+                            getContext().startService(new Intent(getContext(), CompoundNotification.class));
+                        }
+                        else {
+                            mCombinedNotificationIcon.setVisible(false);
+                            // Stop compound service and start individual ones
+                            getContext().stopService(new Intent(getContext(), CompoundNotification.class));
+
+                            getContext().startService(new Intent(getContext(), LiveNetworkMonitor.class));
+                            getContext().startService(new Intent(getContext(), NotificationService.class));
+
+                            // Set notification refresh interval back to 1 min if changed
+                            int elapsedTime = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                    .getInt(NOTIFICATION_REFRESH_INTERVAL, 60000);
+                            String refreshGap = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                    .getString(NOTIFICATION_REFRESH_INTERVAL_SUMMARY, getContext().getString(R.string.option_1_min));
+                            if (elapsedTime < 60000) {
+                                // less than 1 min
+                                elapsedTime = 60000;
+                                refreshGap = getContext().getString(R.string.option_1_min);
+                            }
+                            mNotificationRefreshInterval.setSummary(refreshGap);
+                            PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putInt(NOTIFICATION_REFRESH_INTERVAL,
+                                    elapsedTime).apply();
+                            PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putString(NOTIFICATION_REFRESH_INTERVAL_SUMMARY,
+                                    refreshGap).apply();
+
+                        }
+                    }
+                    else {
+                        mCombineNotifications.setChecked(false);
+                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                        getString(R.string.label_setup_notification_first), Snackbar.LENGTH_SHORT)
+                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                        dismissOnClick(snackbar);
+                        snackbar.show();
+                    }
+                    return false;
+                }
+            });
+
+            mCombinedNotificationIcon.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(@NonNull androidx.preference.Preference preference) {
+                    BottomSheetDialog dialog = new BottomSheetDialog(getContext(), R.style.BottomSheet);
+                    View dialogView = LayoutInflater.from(getContext())
+                            .inflate(R.layout.layout_combined_notification_icon, null);
+                    RadioGroup iconGroup = dialogView.findViewById(R.id.combined_notification_icon_group);
                     ConstraintLayout footer = dialogView.findViewById(R.id.footer);
                     TextView cancel = footer.findViewById(R.id.cancel);
                     TextView ok = footer.findViewById(R.id.ok);
+                    dialog.setContentView(dialogView);
 
-                    dataTypeSwitcher.selectTab(dataTypeSwitcher.getTabAt(PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .getInt(DATA_TYPE, 0)));
-                    Float dataLimit = PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .getFloat(DATA_LIMIT, -1);
-                    if (dataLimit > 0) {
-                        if (dataLimit >= 1024) {
-                            String data = String.format("%.2f", dataLimit / 1024) + "";
-                            dataLimitInput.setText(data);
-                        } else {
-                            dataLimitInput.setText(PreferenceManager.getDefaultSharedPreferences(getContext())
-                                    .getString(LIMIT, null));
-                        }
-
+                    String checkIcon = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                    .getString("combined_notification_icon", ICON_NETWORK_SPEED);
+                    if (checkIcon.equals(ICON_NETWORK_SPEED)) {
+                        iconGroup.check(R.id.icon_network_speed);
                     }
-                    if (PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .getString(DATA_RESET, "").equals(DATA_RESET_MONTHLY)) {
-                        dataReset.check(R.id.monthly);
-                    } else {
-                        dataReset.check(R.id.daily);
+                    else {
+                        iconGroup.check(R.id.icon_data_usage_percent);
                     }
 
-                    cancel.setOnClickListener(new View.OnClickListener() {
+                    ok.setOnClickListener(new View.OnClickListener() {
                         @Override
-                        public void onClick(View v) {
+                        public void onClick(View view) {
+                            int selectedIcon = iconGroup.getCheckedRadioButtonId();
+                            String icon = "";
+                            switch (selectedIcon) {
+                                case R.id.icon_data_usage_percent:
+                                    icon = ICON_DATA_USAGE;
+                                    break;
+
+                                case R.id.icon_network_speed:
+                                    icon = ICON_NETWORK_SPEED;
+                                    break;
+                            }
+
+                            PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
+                                    .putString("combined_notification_icon", icon)
+                                    .apply();
                             dialog.dismiss();
                         }
                     });
 
-                    ok.setOnClickListener(new View.OnClickListener() {
+                    cancel.setOnClickListener(new View.OnClickListener() {
                         @Override
-                        public void onClick(View v) {
-                            if (dataLimitInput.getText().toString().length() <= 0) {
-                                dataLimitInput.setBackground(getResources().getDrawable(R.drawable.text_input_error_background, null));
-                            } else {
-                                Float dataLimit = Float.parseFloat(dataLimitInput.getText().toString());
-                                int dataType;
-                                if (dataTypeSwitcher.getTabAt(0).isSelected()) {
-                                    if (dataLimit >= 1024) {
-                                        dataType = 1;
-                                    } else {
-                                        dataLimit = dataLimit;
-                                        dataType = dataTypeSwitcher.getSelectedTabPosition();
-                                    }
-                                } else {
-                                    dataLimit = dataLimit * 1024f;
-                                    dataType = dataTypeSwitcher.getSelectedTabPosition();
-                                }
-                                if (dataReset.getCheckedRadioButtonId() == R.id.daily) {
-                                    PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putString(DATA_RESET, DATA_RESET_DAILY).apply();
-                                } else {
-                                    PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putString(DATA_RESET, DATA_RESET_MONTHLY).apply();
-                                }
-                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putFloat(DATA_LIMIT, dataLimit).apply();
-                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putString(LIMIT, dataLimitInput.getText().toString()).apply();
-                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putInt(DATA_TYPE, dataType).apply();
-                                snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                        getString(R.string.label_data_plan_saved), Snackbar.LENGTH_SHORT)
-                                        .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
-                                updateResetData();
-                                dialog.dismiss();
-                                dismissOnClick(snackbar);
-                                snackbar.show();
-                                AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
-                                int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(getContext(), DataUsageWidget.class));
-                                Intent intent = new Intent(getContext(), DataUsageWidget.class);
-                                intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
-                                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
-                                getContext().sendBroadcast(intent);
-                            }
+                        public void onClick(View view) {
+                            dialog.dismiss();
                         }
                     });
 
-                    dataLimitInput.addTextChangedListener(new TextWatcher() {
-                        @Override
-                        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-                        }
-
-                        @Override
-                        public void onTextChanged(CharSequence s, int start, int before, int count) {
-                            if (dataLimitInput.getText().toString().length() <= 0) {
-                                dataLimitInput.setBackground(getResources().getDrawable(R.drawable.text_input_error_background, null));
-                            } else {
-                                dataLimitInput.setBackground(getResources().getDrawable(R.drawable.text_input_background, null));
-                            }
-                        }
-
-                        @Override
-                        public void afterTextChanged(Editable s) {
-
-                        }
-                    });
-
-                    dialog.setContentView(dialogView);
-                    dialog.setOnShowListener(new DialogInterface.OnShowListener() {
-                        @Override
-                        public void onShow(DialogInterface dialog) {
-                            BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialog;
-                            FrameLayout bottomSheet = bottomSheetDialog.findViewById(R.id.design_bottom_sheet);
-                            BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-                            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-                        }
-                    });
                     dialog.show();
+                    return false;
+                }
+            });
+
+            mAddDataPlan.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(androidx.preference.Preference preference) {
+                    Intent intent = new Intent(getActivity(), ContainerActivity.class);
+                    intent.putExtra(GENERAL_FRAGMENT_ID, DATA_PLAN_FRAGMENT);
+                    dataPlanLauncher.launch(intent);
+
                     return false;
                 }
             });
@@ -731,6 +1088,9 @@ public class SetupFragment extends Fragment {
                         TextView cancel = footer.findViewById(R.id.cancel);
                         TextView ok = footer.findViewById(R.id.ok);
 
+                        (((LinearLayout) ((LinearLayout) datePicker.getChildAt(0)).getChildAt(0)).getChildAt(0)).setVerticalScrollBarEnabled(false);
+                        (((LinearLayout) ((LinearLayout) datePicker.getChildAt(0)).getChildAt(0)).getChildAt(2)).setVerticalScrollBarEnabled(false);
+
                         int resetDate = PreferenceManager.getDefaultSharedPreferences(getContext())
                                 .getInt(DATA_RESET_DATE, -1);
 
@@ -741,7 +1101,10 @@ public class SetupFragment extends Fragment {
                         datePicker.setOnDateChangedListener(new android.widget.DatePicker.OnDateChangedListener() {
                             @Override
                             public void onDateChanged(android.widget.DatePicker datePicker, int i, int i1, int i2) {
-                                hapticMinor(getContext());
+                                if (!PreferenceManager.getDefaultSharedPreferences(getContext())
+                                        .getBoolean("disable_haptics", false)) {
+                                    VibrationUtils.hapticMinor(getContext());
+                                }
                             }
                         });
 
@@ -803,6 +1166,10 @@ public class SetupFragment extends Fragment {
 
                                 dialog.dismiss();
 
+                                if (PreferenceManager.getDefaultSharedPreferences(requireContext())
+                                        .getBoolean("data_usage_alert", false)) {
+                                    DataUsageMonitor.updateServiceRestart(requireContext());
+                                }
 
                                 snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
                                         getString(R.string.label_data_usage_reset_date_change, datePicker.getDayOfMonth(), suffix),
@@ -815,9 +1182,18 @@ public class SetupFragment extends Fragment {
                         });
 
                         dialog.setContentView(dialogView);
+                        dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                            @Override
+                            public void onShow(DialogInterface dialogInterface) {
+                                BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+                                FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                                BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+                            }
+                        });
                         dialog.show();
                     }
-                    else {
+                    else if (PreferenceManager.getDefaultSharedPreferences(getContext()).getString(DATA_RESET, "null")
+                            .equals(DATA_RESET_DAILY)) {
                         BottomSheetDialog dialog = new BottomSheetDialog(getContext(), R.style.BottomSheet);
                         View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.layout_time_picker, null);
 
@@ -825,6 +1201,9 @@ public class SetupFragment extends Fragment {
                         ConstraintLayout footer = dialogView.findViewById(R.id.footer);
                         TextView cancel = footer.findViewById(R.id.cancel);
                         TextView ok = footer.findViewById(R.id.ok);
+
+                        (((LinearLayout) ((LinearLayout) timePicker.getChildAt(0)).getChildAt(0)).getChildAt(0)).setVerticalScrollBarEnabled(false);
+                        (((LinearLayout) ((LinearLayout) timePicker.getChildAt(0)).getChildAt(0)).getChildAt(2)).setVerticalScrollBarEnabled(false);
 
                         int resetHour = PreferenceManager.getDefaultSharedPreferences(getContext())
                                 .getInt(DATA_RESET_HOUR, -1);
@@ -839,7 +1218,10 @@ public class SetupFragment extends Fragment {
                         timePicker.setOnTimeChangedListener(new TimePicker.OnTimeChangedListener() {
                             @Override
                             public void onTimeChanged(TimePicker timePicker, int i, int i1) {
-                                hapticMinor(getContext());
+                                if (!PreferenceManager.getDefaultSharedPreferences(getContext())
+                                        .getBoolean("disable_haptics", false)) {
+                                    VibrationUtils.hapticMinor(getContext());
+                                }
                             }
                         });
 
@@ -921,6 +1303,11 @@ public class SetupFragment extends Fragment {
 
                                 dialog.dismiss();
 
+                                if (PreferenceManager.getDefaultSharedPreferences(requireContext())
+                                        .getBoolean("data_usage_alert", false)) {
+                                    DataUsageMonitor.updateServiceRestart(requireContext());
+                                }
+
                                 snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
                                         getString(R.string.label_data_usage_reset_time_change, interval, time), Snackbar.LENGTH_SHORT)
                                         .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
@@ -930,85 +1317,31 @@ public class SetupFragment extends Fragment {
                             }
                         });
 
-
-                        TimePickerDialog timePickerDialog = new TimePickerDialog(getContext(), new TimePickerDialog.OnTimeSetListener() {
-                            @Override
-                            public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
-                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
-                                        .putInt(DATA_RESET_HOUR, hourOfDay).apply();
-                                PreferenceManager.getDefaultSharedPreferences(getContext()).edit()
-                                        .putInt(DATA_RESET_MIN, minute).apply();
-
-                                Intent i = new Intent(getContext(), NotificationUpdater.class);
-                                getContext().sendBroadcast(i);
-                                AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
-                                int[] ids = appWidgetManager.getAppWidgetIds(new ComponentName(getContext(), DataUsageWidget.class));
-                                Intent intent = new Intent(getContext(), DataUsageWidget.class);
-                                intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
-                                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
-                                getContext().sendBroadcast(intent);
-
-                                int h, m;
-                                m = minute;
-                                String time, interval;
-
-                                // Again :)
-
-                                if (hourOfDay >= 12) {
-                                    if (hourOfDay == 12) {
-                                        h = 12;
-                                    } else {
-                                        h = (hourOfDay - 12);
-                                    }
-                                    if (m < 10) {
-                                        time = h + ":0" + m + " pm";
-                                    } else {
-                                        time = h + ":" + m + " pm";
-                                    }
-                                } else {
-                                    if (hourOfDay == 0) {
-                                        h = 12;
-                                    } else if (hourOfDay < 10) {
-                                        h = hourOfDay;
-                                        if (m < 10) {
-                                            time = "0" + h + ":0" + m + " pm";
-                                        } else {
-                                            time = "0" + h + ":" + m + " pm";
-                                        }
-                                    } else {
-                                        h = hourOfDay;
-                                    }
-                                    if (h < 10) {
-                                        time = "0" + h + ":" + m + " am";
-                                    } else {
-                                        time = h + ":" + m + " am";
-                                    }
-                                    if (m < 10) {
-                                        time = h + ":0" + m + " am";
-                                    } else {
-                                        time = h + ":" + m + " am";
-                                    }
-                                }
-                                if (PreferenceManager.getDefaultSharedPreferences(getContext())
-                                        .getString(DATA_RESET, "").equals(DATA_RESET_MONTHLY)) {
-                                    interval = getString(R.string.month);
-                                } else {
-                                    interval = getString(R.string.day);
-                                }
-
-                                mUsageResetTime.setSummary(time);
-
-                                snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                        getString(R.string.label_data_usage_reset_time_change, interval, time), Snackbar.LENGTH_SHORT)
-                                        .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
-                                dismissOnClick(snackbar);
-                                snackbar.show();
-                            }
-                        }, hour, minute, false);
-//                        timePickerDialog.show();
-
                         dialog.setContentView(dialogView);
+                        dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                            @Override
+                            public void onShow(DialogInterface dialogInterface) {
+                                BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+                                FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                                BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+                            }
+                        });
                         dialog.show();
+                    }
+                    else if (PreferenceManager.getDefaultSharedPreferences(getContext()).getString(DATA_RESET, "null")
+                            .equals(DATA_RESET_CUSTOM)) {
+                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                getString(R.string.setup_usage_reset_date_custom_selected), Snackbar.LENGTH_SHORT)
+                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                        dismissOnClick(snackbar);
+                        snackbar.show();
+                    }
+                    else {
+                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                getString(R.string.label_add_data_plan_first), Snackbar.LENGTH_SHORT)
+                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                        dismissOnClick(snackbar);
+                        snackbar.show();
                     }
                     return false;
                 }
@@ -1018,22 +1351,29 @@ public class SetupFragment extends Fragment {
             mShowDataWarning.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(androidx.preference.Preference preference) {
-                    Boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .getBoolean("data_usage_alert", false);
-                    Float dataLimit = PreferenceManager.getDefaultSharedPreferences(getContext())
-                            .getFloat(DATA_LIMIT, -1);
-                    if (dataLimit < 0) {
+                    AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                        showAlarmPermissionDeniedDialog(requireContext());
                         mShowDataWarning.setChecked(false);
-                        snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
-                                getString(R.string.label_add_data_plan_first), Snackbar.LENGTH_SHORT)
-                                .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
-                        snackbar.show();
                     }
                     else {
-                        if (isChecked) {
-                            getContext().startService(new Intent(getContext(), DataUsageMonitor.class));
-                        } else {
-                            getContext().stopService(new Intent(getContext(), DataUsageMonitor.class));
+                        Boolean isChecked = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                .getBoolean("data_usage_alert", false);
+                        Float dataLimit = PreferenceManager.getDefaultSharedPreferences(getContext())
+                                .getFloat(DATA_LIMIT, -1);
+                        if (dataLimit < 0) {
+                            mShowDataWarning.setChecked(false);
+                            snackbar = Snackbar.make(getActivity().findViewById(R.id.main_root),
+                                            getString(R.string.label_add_data_plan_first), Snackbar.LENGTH_SHORT)
+                                    .setAnchorView(getActivity().findViewById(R.id.bottomNavigationView));
+                            snackbar.show();
+                        }
+                        else {
+                            if (isChecked) {
+                                getContext().startService(new Intent(getContext(), DataUsageMonitor.class));
+                            } else {
+                                getContext().stopService(new Intent(getContext(), DataUsageMonitor.class));
+                            }
                         }
                     }
                     return false;
@@ -1093,8 +1433,16 @@ public class SetupFragment extends Fragment {
                         public String getFormattedValue(float value) {
                             Float newValue = value + 50; // To ensure value is correct as slider slides
                             String rawValue = newValue.toString();
-                            String output = rawValue.replace(".0", "");
-
+                            String output;
+                            if (rawValue.contains(",")) {
+                                output = rawValue.replace(",0", "");
+                            }
+                            else if (rawValue.contains("٫")) {
+                                output = rawValue.replace("٫0", "");
+                            }
+                            else {
+                                output = rawValue.replace(".0", "");
+                            }
                             int sliderValue = Integer.parseInt(output);
                             String triggerDataLevelValue = null;
                             Double triggerDataLevel = dataLimit.doubleValue() * sliderValue / 100;
@@ -1118,6 +1466,16 @@ public class SetupFragment extends Fragment {
                         }
                     });
 
+                    slider.addOnChangeListener(new Slider.OnChangeListener() {
+                        @Override
+                        public void onValueChange(@NonNull @NotNull Slider slider, float value, boolean fromUser) {
+                            if (fromUser && !PreferenceManager.getDefaultSharedPreferences(getContext())
+                                    .getBoolean("disable_haptics", false)) {
+                                VibrationUtils.hapticMinor(getContext());
+                            }
+                        }
+                    });
+
                     cancel.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
@@ -1130,7 +1488,16 @@ public class SetupFragment extends Fragment {
                         public void onClick(View v) {
                             Float value = slider.getValue() + 50;
                             String rawValue = value.toString();
-                            String output = rawValue.replace(".0", "");
+                            String output;
+                            if (rawValue.contains(",")) {
+                                output = rawValue.replace(",0", "");
+                            }
+                            else if (rawValue.contains("٫")) {
+                                output = rawValue.replace("٫0", "");
+                            }
+                            else {
+                                output = rawValue.replace(".0", "");
+                            }
                             PreferenceManager.getDefaultSharedPreferences(getContext()).edit().putInt(DATA_WARNING_TRIGGER_LEVEL,
                                     Integer.parseInt(output)).apply();
                             mDataWarningTrigger.setSummary(getContext().getString(R.string.label_data_trigger_level, output));
@@ -1139,15 +1506,22 @@ public class SetupFragment extends Fragment {
                                 try {
                                     int trigger = PreferenceManager.getDefaultSharedPreferences(getContext()).getInt(DATA_WARNING_TRIGGER_LEVEL, 85);
 
+                                    String totalUsage = formatData(getDeviceMobileDataUsage(getContext(), SESSION_TODAY, 1)[0],
+                                            getDeviceMobileDataUsage(getContext(), SESSION_TODAY, 1)[1])[2]
+                                            .replace(" MB", "").replace(" GB", "");
+                                    if (totalUsage.contains(",")) {
+                                        totalUsage = totalUsage.replace(",", ".");
+                                    }
+                                    else if (totalUsage.contains("٫")) {
+                                        totalUsage = totalUsage.replace("٫", ".");
+                                    }
+
                                     if (PreferenceManager.getDefaultSharedPreferences(getContext()).getFloat(DATA_LIMIT, -1) * trigger / 100 >
-                                            Double.parseDouble(formatData(getDeviceMobileDataUsage(getContext(), SESSION_TODAY, 1)[0],
-                                                    getDeviceMobileDataUsage(getContext(), SESSION_TODAY, 1)[1])[2]
-                                                    .replace(" MB", "").replace(" GB", ""))) {
+                                            Double.parseDouble(totalUsage)) {
                                         resumeMonitor();
                                     }
-                                } catch (ParseException e) {
-                                    e.printStackTrace();
-                                } catch (RemoteException e) {
+                                }
+                                catch (ParseException | RemoteException e) {
                                     e.printStackTrace();
                                 }
                             }
@@ -1156,6 +1530,14 @@ public class SetupFragment extends Fragment {
                     });
 
                     dialog.setContentView(dialogView);
+                    dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                        @Override
+                        public void onShow(DialogInterface dialogInterface) {
+                            BottomSheetDialog bottomSheetDialog = (BottomSheetDialog) dialogInterface;
+                            FrameLayout bottomSheet = bottomSheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                            BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+                        }
+                    });
                     dialog.show();
                     return false;
                 }
@@ -1170,10 +1552,45 @@ public class SetupFragment extends Fragment {
                 }
             });
 
+            mExcludeApps.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(@NonNull androidx.preference.Preference preference) {
+                    startActivity(new Intent(getActivity(), ContainerActivity.class)
+                            .putExtra(GENERAL_FRAGMENT_ID, EXCLUDE_APPS_FRAGMENT));
+                    return false;
+                }
+            });
+
+        }
+
+        @Override
+        public void onDestroyView() {
+            super.onDestroyView();
+            if (dataPlanLauncher != null) {
+                dataPlanLauncher.unregister();
+                dataPlanLauncher = null;
+            }
+        }
+
+        private void refreshDataPlanSettingsVisibility() {
+            if (PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getString(DATA_RESET, "null").equals(DATA_RESET_CUSTOM)) {
+                mAutoUpdateDataPlan.setVisible(true);
+                mUsageResetTime.setVisible(false);
+            }
+            else {
+                mAutoUpdateDataPlan.setVisible(false);
+                mUsageResetTime.setVisible(true);
+            }
         }
 
         public static void pauseMonitor() {
-            mContext.stopService(new Intent(mContext, DataUsageMonitor.class));
+            try {
+                mContext.stopService(new Intent(mContext, DataUsageMonitor.class));
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
         public static void resumeMonitor() {
@@ -1204,6 +1621,11 @@ public class SetupFragment extends Fragment {
 
                 resetSummary = (getContext().getString(R.string.label_reset_every_month,
                         date, suffix));
+            }
+            else if (PreferenceManager.getDefaultSharedPreferences(getContext()).getString(DATA_RESET, "null")
+                    .equals(DATA_RESET_CUSTOM)) {
+                resetTitle = getContext().getString(R.string.setup_usage_reset_date);
+                resetSummary = getContext().getString(R.string.setup_usage_reset_date_custom_selected);
             }
             else {
                 resetTitle = getContext().getString(R.string.setup_usage_reset_time);

@@ -19,6 +19,8 @@
 
 package com.drnoob.datamonitor.ui.fragments;
 
+import static com.drnoob.datamonitor.Common.dismissOnClick;
+
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
@@ -46,8 +48,6 @@ import com.drnoob.datamonitor.core.base.Preference;
 import com.google.android.material.snackbar.Snackbar;
 
 import org.jetbrains.annotations.NotNull;
-
-import static com.drnoob.datamonitor.Common.dismissOnClick;
 
 public class DonateFragment extends Fragment {
     private static final String TAG = DonateFragment.class.getSimpleName();
@@ -84,7 +84,7 @@ public class DonateFragment extends Fragment {
     }
 
     public static class Donate extends PreferenceFragmentCompat {
-        Preference mBitcoin, mEthereum, mLitecoin, mBhim;
+        Preference mBitcoin, mEthereum, mLitecoin, mMonero, mBhim;
         Snackbar snackbar;
 
         @Override
@@ -94,6 +94,7 @@ public class DonateFragment extends Fragment {
             mBitcoin = (Preference) findPreference("bitcoin");
             mEthereum = (Preference) findPreference("ethereum");
             mLitecoin = (Preference) findPreference("litecoin");
+            mMonero = (Preference) findPreference("monero");
             mBhim = (Preference) findPreference("bhim");
 
             mBitcoin.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
@@ -126,6 +127,18 @@ public class DonateFragment extends Fragment {
                     copyAddress("ltc address", getString(R.string.ltc_address));
                     snackbar = Snackbar.make(getActivity().findViewById(R.id.container_root),
                             R.string.ltc_address_copied, Snackbar.LENGTH_SHORT);
+                    dismissOnClick(snackbar);
+                    snackbar.show();
+                    return false;
+                }
+            });
+
+            mMonero.setOnPreferenceClickListener(new androidx.preference.Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(androidx.preference.Preference preference) {
+                    copyAddress("xmr address", getString(R.string.xmr_address));
+                    snackbar = Snackbar.make(getActivity().findViewById(R.id.container_root),
+                            R.string.xmr_address_copied, Snackbar.LENGTH_SHORT);
                     dismissOnClick(snackbar);
                     snackbar.show();
                     return false;

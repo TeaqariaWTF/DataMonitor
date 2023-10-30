@@ -19,6 +19,19 @@
 
 package com.drnoob.datamonitor.Widget;
 
+import static com.drnoob.datamonitor.core.Values.DATA_LIMIT;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_DAILY;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_DATE;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_MONTHLY;
+import static com.drnoob.datamonitor.core.Values.SESSION_CUSTOM;
+import static com.drnoob.datamonitor.core.Values.SESSION_MONTHLY;
+import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
+import static com.drnoob.datamonitor.utils.NetworkStatsHelper.formatData;
+import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceMobileDataUsage;
+import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceWifiDataUsage;
+
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -27,6 +40,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,22 +51,12 @@ import android.widget.RemoteViews;
 
 import androidx.preference.PreferenceManager;
 
+import com.drnoob.datamonitor.Common;
 import com.drnoob.datamonitor.R;
 import com.drnoob.datamonitor.ui.activities.MainActivity;
 
 import java.text.ParseException;
 import java.util.Calendar;
-
-import static com.drnoob.datamonitor.core.Values.DATA_LIMIT;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_DAILY;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_DATE;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_MONTHLY;
-import static com.drnoob.datamonitor.core.Values.SESSION_MONTHLY;
-import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
-import static com.drnoob.datamonitor.utils.NetworkStatsHelper.formatData;
-import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceMobileDataUsage;
-import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceWifiDataUsage;
 
 /**
  * Implementation of App Widget functionality.
@@ -87,8 +91,16 @@ public class DataUsageWidget extends AppWidgetProvider {
                     .equals(DATA_RESET_MONTHLY)) {
                 mobile = getDeviceMobileDataUsage(context, SESSION_MONTHLY, date);
             }
-            else {
+            else if (PreferenceManager.getDefaultSharedPreferences(context).getString(DATA_RESET, "null")
+                    .equals(DATA_RESET_DAILY)) {
                 mobile = getDeviceMobileDataUsage(context, SESSION_TODAY, 1);
+            }
+            else if (PreferenceManager.getDefaultSharedPreferences(context).getString(DATA_RESET, "null")
+                    .equals(DATA_RESET_CUSTOM)) {
+                mobile = getDeviceMobileDataUsage(context, SESSION_CUSTOM, -1);
+            }
+            else {
+                mobile = getDeviceMobileDataUsage(context, SESSION_TODAY, -1);
             }
 
             mobileData = formatData(mobile[0], mobile[1])[2];
@@ -118,10 +130,19 @@ public class DataUsageWidget extends AppWidgetProvider {
 
         Boolean showRemaining = PreferenceManager.getDefaultSharedPreferences(context)
                 .getBoolean("remaining_data_info", true);
+        Boolean showWifiUsage = PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean("widget_show_wifi_usage", true);
         Float dataLimit = PreferenceManager.getDefaultSharedPreferences(context).getFloat(DATA_LIMIT, -1);
         if (dataLimit < 0) {
             views.setTextViewText(R.id.widget_data_usage_remaining, "");
             views.setViewVisibility(R.id.widget_data_usage_remaining, View.GONE);
+        }
+
+        if (!showWifiUsage) {
+            views.setViewVisibility(R.id.layout_wifi, View.GONE);
+        }
+        else {
+            views.setViewVisibility(R.id.layout_wifi, View.VISIBLE);
         }
 
         if (showRemaining) {
@@ -167,6 +188,23 @@ public class DataUsageWidget extends AppWidgetProvider {
                         e.printStackTrace();
                     }
                 }
+                else {
+                    Long total = (mobile[2]);
+                    Long limit = dataLimit.longValue() * 1048576;
+                    Long remaining;
+                    String remainingData;
+                    if (limit > total) {
+                        remaining= limit - total;
+                        remainingData = formatData(remaining / 2, remaining / 2)[2];
+                        views.setTextViewText(R.id.widget_data_usage_remaining, context.getString(R.string.label_data_remaining, remainingData));
+                    }
+                    else {
+                        remaining= total - limit;
+                        remainingData = formatData(remaining / 2, remaining / 2)[2];
+                        views.setTextViewText(R.id.widget_data_usage_remaining, context.getString(R.string.label_data_remaining_used_excess, remainingData));
+                    }
+                    Log.d(TAG, "updateAppWidget: " + remainingData);
+                }
                 views.setViewVisibility(R.id.widget_data_usage_remaining, View.VISIBLE);
 
             }
@@ -177,7 +215,6 @@ public class DataUsageWidget extends AppWidgetProvider {
             views.setViewVisibility(R.id.widget_data_usage_remaining, View.GONE);
         }
 //        views.setTextViewText(R.id.widget_wifi_usage_remaining, "");
-
 
         Intent intent = new Intent(context, DataUsageWidget.class);
         intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
@@ -307,7 +344,18 @@ public class DataUsageWidget extends AppWidgetProvider {
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(System.currentTimeMillis());
         int elapsedTime = PreferenceManager.getDefaultSharedPreferences(context).getInt("widget_refresh_interval", 60000);
-        alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + elapsedTime, pendingIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + elapsedTime, pendingIntent);
+            }
+            else  {
+                Log.e(TAG, "setRefreshAlarm: permission SCHEDULE_EXACT_ALARM not granted" );
+                Common.postAlarmPermissionDeniedNotification(context);
+            }
+        }
+        else {
+            alarmManager.setExact(AlarmManager.RTC, System.currentTimeMillis() + elapsedTime, pendingIntent);
+        }
     }
 
     private void startReceiver(Context context) {

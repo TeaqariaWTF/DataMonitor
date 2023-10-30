@@ -19,6 +19,14 @@
 
 package com.drnoob.datamonitor.ui.fragments;
 
+import static com.drnoob.datamonitor.Common.refreshAvailableLanguages;
+import static com.drnoob.datamonitor.Common.setLanguage;
+import static com.drnoob.datamonitor.core.Values.APP_COUNTRY_CODE;
+import static com.drnoob.datamonitor.core.Values.APP_LANGUAGE;
+import static com.drnoob.datamonitor.core.Values.APP_LANGUAGE_CODE;
+import static com.drnoob.datamonitor.core.Values.APP_LANGUAGE_FRAGMENT;
+import static com.drnoob.datamonitor.core.Values.GENERAL_FRAGMENT_ID;
+
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -30,7 +38,7 @@ import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -46,22 +54,12 @@ import com.drnoob.datamonitor.utils.SharedPreferences;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-
-import static com.drnoob.datamonitor.Common.setLanguage;
-import static com.drnoob.datamonitor.core.Values.APP_COUNTRY_CODE;
-import static com.drnoob.datamonitor.core.Values.APP_LANGUAGE;
-import static com.drnoob.datamonitor.core.Values.APP_LANGUAGE_CODE;
-import static com.drnoob.datamonitor.core.Values.APP_LANGUAGE_FRAGMENT;
-import static com.drnoob.datamonitor.core.Values.GENERAL_FRAGMENT_ID;
 
 public class LanguageFragment extends Fragment {
     private static final String TAG = LanguageFragment.class.getSimpleName();
 
-    private TextView mContribute;
+    private LinearLayout mContribute;
 
     @Nullable
     @org.jetbrains.annotations.Nullable
@@ -79,13 +77,14 @@ public class LanguageFragment extends Fragment {
         mContribute.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(Intent.ACTION_VIEW).setData(Uri.parse(getString(R.string.github_contribute_translations))));
+                startActivity(new Intent(Intent.ACTION_VIEW)
+                        .setData(Uri.parse(getString(R.string.github_contribute_translations))));
             }
         });
     }
 
     public static class Language extends PreferenceFragmentCompat {
-        private List<LanguageModel> availableLanguages = new ArrayList<>();
+        private List<LanguageModel> availableLanguages = refreshAvailableLanguages();
         private String currentLanguage;
 
         @Override
@@ -101,26 +100,9 @@ public class LanguageFragment extends Fragment {
                     .getString(APP_LANGUAGE, "English");
             SpannableString spannableString = new SpannableString(currentLanguage);
             spannableString.setSpan(new ForegroundColorSpan(
-                    getContext().getResources().getColor(R.color.primary, null)), 0,
+                            getContext().getResources().getColor(R.color.primary, null)), 0,
                     spannableString.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             currentLanguagePref.setTitle(spannableString);
-
-            availableLanguages.add(new LanguageModel("Romanian", "ro", ""));
-            availableLanguages.add(new LanguageModel("English", "en", ""));
-            availableLanguages.add(new LanguageModel("Simplified Chinese", "zh", "rCN"));
-            availableLanguages.add(new LanguageModel("Traditional Chinese", "zh", "rTW"));
-            availableLanguages.add(new LanguageModel("French", "fr", ""));
-            availableLanguages.add(new LanguageModel("Arabic", "ar", ""));
-            availableLanguages.add(new LanguageModel("Malayalam", "ml", ""));
-            availableLanguages.add(new LanguageModel("Italian", "it", ""));
-
-
-            Collections.sort(availableLanguages, new Comparator<LanguageModel>() {
-                @Override
-                public int compare(LanguageModel languageModel, LanguageModel t1) {
-                    return languageModel.getLanguage().compareTo(t1.getLanguage());
-                }
-            });
 
             for (int i = 0; i < availableLanguages.size(); i++) {
                 String language = availableLanguages.get(i).getLanguage();
@@ -140,16 +122,6 @@ public class LanguageFragment extends Fragment {
                                     .putString(APP_LANGUAGE_CODE, languageCode)
                                     .putString(APP_COUNTRY_CODE, countryCode)
                                     .apply();
-//                        LocaleListCompat appLocale = LocaleListCompat.forLanguageTags("ro");
-//                        AppCompatDelegate.setApplicationLocales(appLocale);
-
-
-//                        Locale locale = new Locale(languageCode);
-//                        Locale.setDefault(locale);
-//                        Resources resources = getActivity().getResources();
-//                        Configuration config = resources.getConfiguration();
-//                        config.setLocale(locale);
-//                        resources.updateConfiguration(config, resources.getDisplayMetrics());
 
                             setLanguage(getActivity(), languageCode, countryCode);
                             startActivity(new Intent(getActivity(), MainActivity.class)

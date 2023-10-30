@@ -31,9 +31,13 @@ public class Values {
     public static final String APP_DATA_USAGE_WARNING_CHANNEL_ID = "AppDataUsage.Warning";
     public static final String APP_DATA_USAGE_WARNING_CHANNEL_NAME = "App Data Usage Warning";
     public static final int NETWORK_SIGNAL_NOTIFICATION_ID = 0x010D;
-    public static final String NETWORK_SIGNAL_CHANNEL_ID = "NetworkSignal.Notification";
+    public static final String NETWORK_SIGNAL_CHANNEL_ID = "LiveNetwork.Notifications";
     public static final String NETWORK_SIGNAL_CHANNEL_NAME = "Network Speed Monitor";
     public static final String NETWORK_SIGNAL_NOTIFICATION_GROUP = "Network Speed Monitor";
+    public static final int OTHER_NOTIFICATION_ID = 0x012C;
+    public static final String OTHER_NOTIFICATION_CHANNEL_ID = "Other.Notification";
+    public static final String OTHER_NOTIFICATION_CHANNEL_NAME = "Other";
+    public static final String DEFAULT_NOTIFICATION_GROUP = "Default";
 
 
     public static final int SESSION_TODAY = 0x000A;
@@ -43,6 +47,7 @@ public class Values {
     public static final int SESSION_THIS_YEAR = 0x0032;
     public static final int SESSION_ALL_TIME = 0x003C;
     public static final int SESSION_MONTHLY = 0x00A9;
+    public static final int SESSION_CUSTOM = 0x00AC;
 
     public static final int TYPE_MOBILE_DATA = 0x0046;
     public static final int TYPE_WIFI = 0x0050;
@@ -52,6 +57,8 @@ public class Values {
     public static final String DATA_USAGE_TYPE = "data_usage_type";
     public static final int DATA_USAGE_SYSTEM = 0x005A;
     public static final int DATA_USAGE_USER = 0x0064;
+    public static final int DATA_USAGE_TODAY = 0x00D3;
+    public static final int DATA_USAGE_WEEKDAY = 0x00D4;
 
     public static final String GENERAL_FRAGMENT_ID = "GENERAL_FRAGMENT_ID";
 
@@ -64,7 +71,12 @@ public class Values {
     public static final int APP_DATA_LIMIT_FRAGMENT = 0x00AA;
     public static final int NETWORK_STATS_FRAGMENT = 0x00C8;
     public static final int APP_LANGUAGE_FRAGMENT = 0x00D2;
-
+    public static final int DISABLE_BATTERY_OPTIMISATION_FRAGMENT = 0x00E6;
+    public static final int DIAGNOSTICS_SETTINGS_FRAGMENT = 0x00F0;
+    public static final int EXCLUDE_APPS_FRAGMENT = 0x0104;
+    public static final int DIAGNOSTICS_HISTORY_FRAGMENT = 0x010E;
+    public static final int DATA_PLAN_FRAGMENT = 0x0118;
+    public static final int APP_CONTRIBUTORS_FRAGMENT = 0x0122;
 
     public static final int BOTTOM_NAVBAR_ITEM_HOME = 0;
     public static final int BOTTOM_NAVBAR_ITEM_SETUP = 1;
@@ -75,6 +87,7 @@ public class Values {
     public static final int USAGE_ACCESS_DISABLED = 0x00B4;
     public static final int READ_PHONE_STATE_DISABLED = 0x00B5;
     public static final int REQUEST_READ_PHONE_STATE = 2011;
+    public static final int REQUEST_POST_NOTIFICATIONS = 2111;
 
     public static final String SETUP_COMPLETED = "is_setup_complete";
     public static final String DATA_LIMIT = "data_limit";
@@ -83,9 +96,17 @@ public class Values {
     public static final String DATA_RESET = "data_reset";
     public static final String DATA_RESET_DAILY = "daily";
     public static final String DATA_RESET_MONTHLY = "monthly";
+    public static final String DATA_RESET_CUSTOM = "custom";
     public static final String DATA_RESET_HOUR = "reset_hour";
     public static final String DATA_RESET_MIN = "reset_min";
+    public static final String DATA_RESET_CUSTOM_DATE_START_HOUR = "custom_start_hour";
+    public static final String DATA_RESET_CUSTOM_DATE_START_MIN = "custom_start_min";
+    public static final String DATA_RESET_CUSTOM_DATE_END_HOUR = "custom_end_hour";
+    public static final String DATA_RESET_CUSTOM_DATE_END_MIN = "custom_end_min";
     public static final String DATA_RESET_DATE = "reset_date";
+    public static final String DATA_RESET_CUSTOM_DATE_START = "custom_reset_date_start";
+    public static final String DATA_RESET_CUSTOM_DATE_END = "custom_reset_date_end";
+    public static final String DATA_RESET_CUSTOM_DATE_RESTART = "custom_reset_date_restart";
     public static final String DATA_WARNING_TRIGGER_LEVEL = "data_warning_trigger_level";
     public static final String DATA_USAGE_WARNING_SHOWN = "data_usage_warning_shown";
     public static final String DATA_USAGE_ALERT = "data_usage_alert";
@@ -101,6 +122,17 @@ public class Values {
     public static final String DAILY_DATA_HOME_ACTION = "daily_data_home_action";
     public static final String APP_THEME = "app_theme";
     public static final String APP_THEME_SUMMARY = "app_theme_summary";
+    public static final String DIAGNOSTICS_DOWNLOAD_URL = "diagnostics_download_url";
+    public static final String DIAGNOSTICS_DOWNLOAD_URL_SUMMARY = "diagnostics_download_url_summary";
+    public static final String DIAGNOSTICS_DOWNLOAD_URL_INDEX = "diagnostics_download_url_index";
+    public static final String DIAGNOSTICS_UPLOAD_URL = "diagnostics_upload_url";
+    public static final String DIAGNOSTICS_UPLOAD_URL_SUMMARY = "diagnostics_upload_url_summary";
+    public static final String DIAGNOSTICS_UPLOAD_URL_INDEX = "diagnostics_upload_url_index";
+    public static final String SHOW_ADD_PLAN_BANNER = "show_add_plan_banner";
+    public static final String LANGUAGE_SYSTEM_DEFAULT = "system";
+    public static final String ALARM_PERMISSION_DENIED = "alarm_permission_denied";
+    public static final String UPDATE_NOTIFICATION_CHANNEL = "update_notification_channel.v2";
+    public static final String SHOULD_SHOW_BATTERY_OPTIMISATION_ERROR = "show_battery_optimisation_error";
 
     public static final String DARK_MODE_TOGGLE = "dark_mode_toggle";
 
@@ -127,5 +159,30 @@ public class Values {
 
     public static final String UPDATE_VERSION = "update_version";
     public static final String MD5_GITHUB = "39aa537128b70c2886cb771c33944a7d";
+    public static final String MD5_PLAY = "58CDB2B01A9E512D4FDC1A9926A29513";
+    public static final String MD5_F_DROID = "4a509c658ae252568c7c196c0dba01ae";
+
+    public static final String CRASH_REPORT_KEY = "datamonitor.crashReport";
+
+    public static final String INTENT_ACTION = "datamonitor.intent.action";
+    public static final String ACTION_SHOW_DATA_PLAN_NOTIFICATION = "datamonitor.intent.action.dataPlanNotification";
+    public static final String EXTRA_APP_NAME = "datamonitor.intent.extra.appName";
+    public static final String EXTRA_APP_PACKAGE = "datamonitor.intent.extra.appPackageName";
+    public static final String EXTRA_ACTIVITY_TITLE = "datamonitor.intent.extra.activityTitle";
+    public static final String EXTRA_WEEK_DAY = "datamonitor.intent.extra.weekDay";
+    public static final String EXTRA_IS_WEEK_DAY_VIEW = "datamonitor.intent.extra.isWeekDayView";
+    public static final String EXTRA_DATA_ALARM_RESET = "datamonitor.intent.extra.dataAlarmReset";
+
+    public static final String ICON_DATA_USAGE = "combined_icon_data_usage";
+    public static final String ICON_NETWORK_SPEED = "combined_icon_network_speed";
+
+    public static final String EXCLUDE_APPS_PREFERENCES = "com.drnoob.datamonitor_exclude_apps_preferences";
+    public static final String DIAGNOSTICS_HISTORY_PREFERENCES = "com.drnoob.datamonitor_diagnostics_history_preferences";
+    public static final String EXCLUDE_APPS_LIST = "excluded_apps_list";
+    public static final String DIAGNOSTICS_HISTORY_LIST = "diagnostics_history_list";
+
+    public static final String WALL_OF_THANKS_LAST_UPDATE = "wall_of_thanks_last_update";
+    public static final String WALL_OF_THANKS_FEATURED_DONORS = "wall_of_thanks_featured_donors";
+    public static final String WALL_OF_THANKS_ALL_DONORS = "wall_of_thanks_all_donors";
 
 }

@@ -1,7 +1,7 @@
-[![Version](https://shields.io/badge/version-v2.0.0-087AFF.svg)](https://github.com/itsdrnoob/DataMonitor)
+[![Version](https://shields.io/badge/version-v2.4.0-087AFF.svg)](https://github.com/itsdrnoob/DataMonitor/tree/dev/2.4.0)
 [![Platform](https://shields.io/badge/platform-android-green.svg)](https://github.com/itsdrnoob/DataMonitor)
 [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
-[![Release](https://shields.io/badge/release-v2.0.0-blue.svg)](https://github.com/itsdrnoob/DataMonitor/releases)
+[![Release](https://shields.io/badge/release-v2.3.2-blue.svg)](https://github.com/itsdrnoob/DataMonitor/releases)
 [![Chat](https://img.shields.io/badge/Telegram%20Chat-blue?logo=telegram)](https://t.me/datamonitor)
 [![Downloads](https://img.shields.io/github/downloads/itsdrnoob/DataMonitor/total)](https://github.com/itsdrnoob/DataMonitor/releases)
 
@@ -28,17 +28,39 @@ Track all your data usage - at one place
 - Light-weight and Open Source
 
 ## Screenshots
-![Home Part 1](https://github.com/itsdrnoob/DataMonitor/blob/0afb0f0ff795b3df153dc80622b55d4b42748bf0/images/ss_part_1.png)<br><br>
-![Home Part 2](https://github.com/itsdrnoob/DataMonitor/blob/0afb0f0ff795b3df153dc80622b55d4b42748bf0/images/ss_part_2.png)
+![Home Part 1](https://github.com/itsdrnoob/DataMonitor/blob/HEAD/images/ss_part_1.png)<br><br>
+![Home Part 2](https://github.com/itsdrnoob/DataMonitor/blob/HEAD/images/ss_part_2.png)
 <br><br>
 
 ## Download
 [<img alt="Get it on Google Play" height="85" src="./images/google-play-badge.png">](https://play.google.com/store/apps/details?id=com.drnoob.datamonitor)<br><br>
-[<img alt="Get it on AFH" height="50" src="https://www.androidfilehost.com/images/afh.png">](https://www.androidfilehost.com/?fid=14871746926876819885)<br><br>
-Or check <a href = "https://github.com/itsdrnoob/DataMonitor/releases/tag/v2.0.0">releases</a>
+[<img alt="Get it on F-Droid" height="85" src="./images/f-droid-badge.png">](https://f-droid.org/packages/com.drnoob.datamonitor/)<br><br>
+Or check <a href = "https://github.com/itsdrnoob/DataMonitor/releases/latest">releases</a>
+
+## Changelog
+View the complete changelog <a href = "CHANGELOG.md">here</a>
+
+## Support
+If you found the app useful, please consider starring and/or forking the repo. 🌟<br>
+If you would like to support the development of the app, a donation would be greatly appreciated. 💵<br>
+You can donate in the following ways:
+- [PayPal](https://paypal.me/itsdrnoob)
+- <a href="https://buymeacoffee.com/itsdrnoob">Buy Me A Coffee</a>
+- UPI: `itsdrnoob@ybl`
+- Bitcoin: `3MS2NP6ptS7XQytdn5yCAQgotVtXBQL1xw`
+- Etherium: `0x820f316f75dacf5606b49bd33dfcf7e7142d59a5`
+- Litecoin: `MQBVqLUpHLs2KUi8gTrhQkicpQVkohaccB`
+- Monero: `82xMyK4P174QrEkkAcpEcq4AsREGqYDgpUbdmFRpNQRjaPR3DNJGZcQCA3Vp2PFNJnUEHzWBRdPzLfKF827z2WyuCLoTGyo`
 
 ## Telegram support
 Cick <a href="https://t.me/datamonitor">here</a> to join the telegram support chat. If that didn't work try searching for <code>@datamonitor</code> in telegram instead.
+
+## Beta Builds
+Beta builds for Data Monitor will be available on Play Store and <a href="https://t.me/datamonitor">Telegram</a>.<br>
+Join the Beta program on:<br>
+<a href="https://play.google.com/store/apps/details?id=com.drnoob.datamonitor">Google Play</a><br>
+<a href="https://play.google.com/apps/testing/com.drnoob.datamonitor">Web</a><br>
+Latest Beta: <a href="https://github.com/itsdrnoob/DataMonitor/tree/dev/2.4.0">v2.4.0-Beta2</a>
 
 ## License
 Check app license <a href = "LICENSE">here</a>

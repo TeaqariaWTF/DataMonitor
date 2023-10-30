@@ -19,9 +19,30 @@
 
 package com.drnoob.datamonitor.utils;
 
+import static android.app.usage.NetworkStats.Bucket.UID_REMOVED;
+import static android.app.usage.NetworkStats.Bucket.UID_TETHERING;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM_DATE_END;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM_DATE_END_HOUR;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM_DATE_END_MIN;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM_DATE_START;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM_DATE_START_HOUR;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_CUSTOM_DATE_START_MIN;
+import static com.drnoob.datamonitor.core.Values.DATA_RESET_DATE;
+import static com.drnoob.datamonitor.core.Values.EXCLUDE_APPS_LIST;
+import static com.drnoob.datamonitor.core.Values.SESSION_ALL_TIME;
+import static com.drnoob.datamonitor.core.Values.SESSION_CUSTOM;
+import static com.drnoob.datamonitor.core.Values.SESSION_LAST_MONTH;
+import static com.drnoob.datamonitor.core.Values.SESSION_MONTHLY;
+import static com.drnoob.datamonitor.core.Values.SESSION_THIS_MONTH;
+import static com.drnoob.datamonitor.core.Values.SESSION_THIS_YEAR;
+import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
+import static com.drnoob.datamonitor.core.Values.SESSION_YESTERDAY;
+
+import android.annotation.SuppressLint;
 import android.app.usage.NetworkStats;
 import android.app.usage.NetworkStatsManager;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.RemoteException;
@@ -32,8 +53,13 @@ import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
 
 import com.drnoob.datamonitor.R;
+import com.drnoob.datamonitor.adapters.data.AppModel;
 import com.drnoob.datamonitor.adapters.data.OverviewModel;
+import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
 
+import java.lang.reflect.Type;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -42,21 +68,12 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import static android.app.usage.NetworkStats.Bucket.UID_REMOVED;
-import static android.app.usage.NetworkStats.Bucket.UID_TETHERING;
-import static com.drnoob.datamonitor.core.Values.DATA_RESET_DATE;
-import static com.drnoob.datamonitor.core.Values.SESSION_ALL_TIME;
-import static com.drnoob.datamonitor.core.Values.SESSION_LAST_MONTH;
-import static com.drnoob.datamonitor.core.Values.SESSION_MONTHLY;
-import static com.drnoob.datamonitor.core.Values.SESSION_THIS_MONTH;
-import static com.drnoob.datamonitor.core.Values.SESSION_THIS_YEAR;
-import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
-import static com.drnoob.datamonitor.core.Values.SESSION_YESTERDAY;
-
 /* Created by Dr.NooB on 23/09/2021 */
 
 public class NetworkStatsHelper {
     private static final String TAG = NetworkStatsHelper.class.getSimpleName();
+    private static Gson gson = new Gson();
+    private static Type type = new TypeToken<List<AppModel>>() {}.getType();
 
     public static String getSubscriberId(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -80,8 +97,33 @@ public class NetworkStatsHelper {
         Long endTimeMillis = getTimePeriod(context, session, 1)[1];
         Long sent, received, total;
 
+        Long excludedSent = 0L,
+                excludedReceived = 0L,
+                excludedTotal = 0L;
+
+        String jsonData = SharedPreferences.getExcludeAppsPrefs(context)
+                .getString(EXCLUDE_APPS_LIST, null);
+        List<AppModel> excludedAppsList = new ArrayList<>();
+        if (jsonData != null) {
+            excludedAppsList.addAll(gson.fromJson(jsonData, type));
+        }
+        for (AppModel app : excludedAppsList) {
+            int uid = 0;
+            try {
+                uid = context.getPackageManager().getApplicationInfo(app.getPackageName(), 0).uid;
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
+            Long[] wifi = getAppWifiDataUsage(context, uid, session);
+
+            excludedSent += wifi[0];
+            excludedReceived += wifi[1];
+            excludedTotal += wifi[2];
+        }
+
         NetworkStatsManager networkStatsManager = (NetworkStatsManager) context.getSystemService(Context.NETWORK_STATS_SERVICE);
         NetworkStats.Bucket bucket = new NetworkStats.Bucket();
+
         bucket = networkStatsManager.querySummaryForDevice(ConnectivityManager.TYPE_WIFI,
                 getSubscriberId(context),
                 resetTimeMillis,
@@ -90,25 +132,68 @@ public class NetworkStatsHelper {
         received = bucket.getRxBytes();
         sent = bucket.getTxBytes();
         total = sent + received;
+
+        sent = sent - excludedSent;
+        received = received - excludedReceived;
+        total = total - excludedTotal;
+
         data = new Long[]{sent, received, total};
         return data;
     }
 
     public static Long[] getDeviceMobileDataUsage(Context context, int session, @Nullable int startDate) throws ParseException, RemoteException {
         NetworkStatsManager networkStatsManager = (NetworkStatsManager) context.getSystemService(Context.NETWORK_STATS_SERVICE);
-        NetworkStats networkStats = null;
         NetworkStats.Bucket bucket = new NetworkStats.Bucket();
 
         Long resetTimeMillis = getTimePeriod(context, session, startDate)[0];
         Long endTimeMillis = getTimePeriod(context, session, startDate)[1];
+
         Long sent = 0L,
                 received = 0L,
                 total = 0L;
+        Long excludedSent = 0L,
+                excludedReceived = 0L,
+                excludedTotal = 0L;
+
+        String jsonData = SharedPreferences.getExcludeAppsPrefs(context)
+                .getString(EXCLUDE_APPS_LIST, null);
+        List<AppModel> excludedAppsList = new ArrayList<>();
+        if (jsonData != null) {
+            excludedAppsList.addAll(gson.fromJson(jsonData, type));
+        }
+        for (AppModel app : excludedAppsList) {
+            int uid = 0;
+            try {
+                uid = context.getPackageManager().getApplicationInfo(app.getPackageName(), 0).uid;
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
+            Long[] mobile = getAppMobileDataUsage(context, uid, session);
+
+            excludedSent += mobile[0];
+            excludedReceived += mobile[1];
+            excludedTotal += mobile[2];
+        }
 
         bucket = networkStatsManager.querySummaryForDevice(ConnectivityManager.TYPE_MOBILE,
                 getSubscriberId(context),
                 resetTimeMillis,
                 endTimeMillis);
+
+//        NetworkStats networkStats = networkStatsManager.querySummary(ConnectivityManager.TYPE_MOBILE,
+//                getSubscriberId(context),
+//                resetTimeMillis,
+//                endTimeMillis);
+
+//        Long rxBytes = 0L;
+//        Long txBytes = 0L;
+//
+//        do {
+//            networkStats.getNextBucket(bucket);
+//            rxBytes += bucket.getRxBytes();
+//            txBytes += bucket.getTxBytes();
+//        }
+//        while (networkStats.hasNextBucket());
 
         Long rxBytes = bucket.getRxBytes();
         Long txBytes = bucket.getTxBytes();
@@ -116,6 +201,130 @@ public class NetworkStatsHelper {
         sent = txBytes;
         received = rxBytes;
         total = sent + received;
+
+        sent = sent - excludedSent;
+        received = received - excludedReceived;
+        total = total - excludedTotal;
+
+        Long[] data = new Long[]{sent, received, total};
+        return data;
+    }
+
+    public static Long[] getTotalAppWifiDataUsage(Context context, int session) throws ParseException, RemoteException {
+        Long[] data;
+        Long resetTimeMillis = getTimePeriod(context, session, 1)[0];
+        Long endTimeMillis = getTimePeriod(context, session, 1)[1];
+        Long sent, received, total;
+
+        Long excludedSent = 0L,
+                excludedReceived = 0L,
+                excludedTotal = 0L;
+
+        String jsonData = SharedPreferences.getExcludeAppsPrefs(context)
+                .getString(EXCLUDE_APPS_LIST, null);
+        List<AppModel> excludedAppsList = new ArrayList<>();
+        if (jsonData != null) {
+            excludedAppsList.addAll(gson.fromJson(jsonData, type));
+        }
+        for (AppModel app : excludedAppsList) {
+            int uid = 0;
+            try {
+                uid = context.getPackageManager().getApplicationInfo(app.getPackageName(), 0).uid;
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
+            Long[] wifi = getAppWifiDataUsage(context, uid, session);
+
+            excludedSent += wifi[0];
+            excludedReceived += wifi[1];
+            excludedTotal += wifi[2];
+        }
+
+        NetworkStatsManager networkStatsManager = (NetworkStatsManager) context.getSystemService(Context.NETWORK_STATS_SERVICE);
+        NetworkStats.Bucket bucket = new NetworkStats.Bucket();
+
+        NetworkStats networkStats = networkStatsManager.querySummary(ConnectivityManager.TYPE_WIFI,
+                getSubscriberId(context),
+                resetTimeMillis,
+                endTimeMillis);
+
+        received = 0l;
+        sent = 0l;
+
+        do {
+            networkStats.getNextBucket(bucket);
+            received += bucket.getRxBytes();
+            sent += bucket.getTxBytes();
+        }
+        while (networkStats.hasNextBucket());
+
+        total = sent + received;
+
+        sent = sent - excludedSent;
+        received = received - excludedReceived;
+        total = total - excludedTotal;
+
+        data = new Long[]{sent, received, total};
+        return data;
+    }
+
+    public static Long[] getTotalAppMobileDataUsage(Context context, int session, @Nullable int startDate) throws ParseException, RemoteException {
+        NetworkStatsManager networkStatsManager = (NetworkStatsManager) context.getSystemService(Context.NETWORK_STATS_SERVICE);
+        NetworkStats.Bucket bucket = new NetworkStats.Bucket();
+
+        Long resetTimeMillis = getTimePeriod(context, session, startDate)[0];
+        Long endTimeMillis = getTimePeriod(context, session, startDate)[1];
+
+        Long sent = 0L,
+                received = 0L,
+                total = 0L;
+        Long excludedSent = 0L,
+                excludedReceived = 0L,
+                excludedTotal = 0L;
+
+        String jsonData = SharedPreferences.getExcludeAppsPrefs(context)
+                .getString(EXCLUDE_APPS_LIST, null);
+        List<AppModel> excludedAppsList = new ArrayList<>();
+        if (jsonData != null) {
+            excludedAppsList.addAll(gson.fromJson(jsonData, type));
+        }
+        for (AppModel app : excludedAppsList) {
+            int uid = 0;
+            try {
+                uid = context.getPackageManager().getApplicationInfo(app.getPackageName(), 0).uid;
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
+            Long[] mobile = getAppMobileDataUsage(context, uid, session);
+
+            excludedSent += mobile[0];
+            excludedReceived += mobile[1];
+            excludedTotal += mobile[2];
+        }
+
+        NetworkStats networkStats = networkStatsManager.querySummary(ConnectivityManager.TYPE_MOBILE,
+                getSubscriberId(context),
+                resetTimeMillis,
+                endTimeMillis);
+
+        Long rxBytes = 0L;
+        Long txBytes = 0L;
+
+        do {
+            networkStats.getNextBucket(bucket);
+            rxBytes += bucket.getRxBytes();
+            txBytes += bucket.getTxBytes();
+        }
+        while (networkStats.hasNextBucket());
+
+        sent = txBytes;
+        received = rxBytes;
+        total = sent + received;
+
+        sent = sent - excludedSent;
+        received = received - excludedReceived;
+        total = total - excludedTotal;
+
         Long[] data = new Long[]{sent, received, total};
         return data;
     }
@@ -409,15 +618,40 @@ public class NetworkStatsHelper {
         return data;
     }
 
+    @SuppressLint("SimpleDateFormat")
     public static Long[] getTimePeriod(Context context, int session, @Nullable int startDate) throws ParseException {
         int year, month, day;
         long resetTimeMillis = 0l,
                 endTimeMillis = 0l;
 
+        Long planStartDateMillis, planEndDateMillis;
+        try {
+            planStartDateMillis = PreferenceManager.getDefaultSharedPreferences(context)
+                    .getLong(DATA_RESET_CUSTOM_DATE_START, MaterialDatePicker.todayInUtcMilliseconds());
+            planEndDateMillis = PreferenceManager.getDefaultSharedPreferences(context)
+                    .getLong(DATA_RESET_CUSTOM_DATE_END, MaterialDatePicker.todayInUtcMilliseconds());
+        }
+        catch (ClassCastException e) {
+            int planStartIntValue = PreferenceManager.getDefaultSharedPreferences(context)
+                    .getInt(DATA_RESET_CUSTOM_DATE_START, -1);
+            int planEndIntValue = PreferenceManager.getDefaultSharedPreferences(context)
+                    .getInt(DATA_RESET_CUSTOM_DATE_END, -1);
+            planStartDateMillis = ((Number) planStartIntValue).longValue();
+            planEndDateMillis = ((Number) planEndIntValue).longValue();
+        }
+
         int resetHour = PreferenceManager.getDefaultSharedPreferences(context)
                 .getInt("reset_hour", 0);
         int resetMin = PreferenceManager.getDefaultSharedPreferences(context)
                 .getInt("reset_min", 0);
+        int customStartHour = PreferenceManager.getDefaultSharedPreferences(context)
+                .getInt(DATA_RESET_CUSTOM_DATE_START_HOUR,0);
+        int customStartMin = PreferenceManager.getDefaultSharedPreferences(context)
+                .getInt(DATA_RESET_CUSTOM_DATE_START_MIN,0);
+        int customEndHour = PreferenceManager.getDefaultSharedPreferences(context)
+                .getInt(DATA_RESET_CUSTOM_DATE_END_HOUR,11);
+        int customEndMin = PreferenceManager.getDefaultSharedPreferences(context)
+                .getInt(DATA_RESET_CUSTOM_DATE_END_MIN,59);
 
         Date date = new Date();
         SimpleDateFormat yearFormat = new SimpleDateFormat("yyyy");
@@ -585,6 +819,24 @@ public class NetworkStatsHelper {
                 }
                 break;
 
+            case SESSION_CUSTOM:
+                year = Integer.parseInt(yearFormat.format(planStartDateMillis));;
+                month = Integer.parseInt(monthFormat.format(planStartDateMillis));
+                day = Integer.parseInt(dayFormat.format(planStartDateMillis));
+                startTime = context.getResources()
+                        .getString(R.string.reset_time, year, month, day, customStartHour, customStartMin);
+                resetDate = dateFormat.parse(startTime);
+                resetTimeMillis = resetDate.getTime();
+
+                year = Integer.parseInt(yearFormat.format(planEndDateMillis));
+                month = Integer.parseInt(monthFormat.format(planEndDateMillis));
+                day = Integer.parseInt(dayFormat.format(planEndDateMillis));
+                endTime = context.getResources()
+                        .getString(R.string.reset_time, year, month, day, customEndHour, customEndMin);
+                endDate = dateFormat.parse(endTime);
+                endTimeMillis = endDate.getTime();
+                break;
+
         }
 
         if (resetTimeMillis > System.currentTimeMillis()) {
@@ -603,7 +855,8 @@ public class NetworkStatsHelper {
             endTime = context.getResources().getString(R.string.reset_time, year, month, day, resetHour, resetMin);
             endDate = dateFormat.parse(endTime);
             endTimeMillis = endDate.getTime();
-        } else {
+        }
+        else {
             if (session == SESSION_TODAY) {
                 year = Integer.parseInt(yearFormat.format(date));
                 month = Integer.parseInt(monthFormat.format(date));

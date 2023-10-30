@@ -19,58 +19,13 @@
 
 package com.drnoob.datamonitor.ui.activities;
 
-import android.app.Activity;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.os.AsyncTask;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.RemoteException;
-import android.text.Spannable;
-import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.widget.RemoteViews;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.app.AppCompatDelegate;
-import androidx.navigation.NavController;
-import androidx.navigation.NavDestination;
-import androidx.navigation.fragment.NavHostFragment;
-import androidx.navigation.ui.NavigationUI;
-import androidx.preference.PreferenceManager;
-
-import com.drnoob.datamonitor.BuildConfig;
-import com.drnoob.datamonitor.R;
-import com.drnoob.datamonitor.Widget.DataUsageWidget;
-import com.drnoob.datamonitor.adapters.data.AppDataUsageModel;
-import com.drnoob.datamonitor.core.task.DatabaseHandler;
-import com.drnoob.datamonitor.databinding.ActivityMainBinding;
-import com.drnoob.datamonitor.utils.SharedPreferences;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-
 import static com.drnoob.datamonitor.Common.isAppInstalled;
 import static com.drnoob.datamonitor.Common.isReadPhoneStateGranted;
 import static com.drnoob.datamonitor.Common.isUsageAccessGranted;
 import static com.drnoob.datamonitor.Common.refreshService;
 import static com.drnoob.datamonitor.Common.setLanguage;
+import static com.drnoob.datamonitor.Common.showAlarmPermissionDeniedDialog;
+import static com.drnoob.datamonitor.core.Values.ALARM_PERMISSION_DENIED;
 import static com.drnoob.datamonitor.core.Values.APP_COUNTRY_CODE;
 import static com.drnoob.datamonitor.core.Values.APP_DATA_USAGE_WARNING_CHANNEL_ID;
 import static com.drnoob.datamonitor.core.Values.APP_DATA_USAGE_WARNING_CHANNEL_NAME;
@@ -84,14 +39,20 @@ import static com.drnoob.datamonitor.core.Values.DATA_USAGE_SYSTEM;
 import static com.drnoob.datamonitor.core.Values.DATA_USAGE_VALUE;
 import static com.drnoob.datamonitor.core.Values.DATA_USAGE_WARNING_CHANNEL_ID;
 import static com.drnoob.datamonitor.core.Values.DATA_USAGE_WARNING_CHANNEL_NAME;
+import static com.drnoob.datamonitor.core.Values.DISABLE_BATTERY_OPTIMISATION_FRAGMENT;
 import static com.drnoob.datamonitor.core.Values.GENERAL_FRAGMENT_ID;
 import static com.drnoob.datamonitor.core.Values.NETWORK_SIGNAL_CHANNEL_ID;
 import static com.drnoob.datamonitor.core.Values.NETWORK_SIGNAL_CHANNEL_NAME;
+import static com.drnoob.datamonitor.core.Values.OTHER_NOTIFICATION_CHANNEL_ID;
+import static com.drnoob.datamonitor.core.Values.OTHER_NOTIFICATION_CHANNEL_NAME;
 import static com.drnoob.datamonitor.core.Values.READ_PHONE_STATE_DISABLED;
+import static com.drnoob.datamonitor.core.Values.REQUEST_POST_NOTIFICATIONS;
 import static com.drnoob.datamonitor.core.Values.SESSION_TODAY;
 import static com.drnoob.datamonitor.core.Values.SETUP_COMPLETED;
 import static com.drnoob.datamonitor.core.Values.SETUP_VALUE;
+import static com.drnoob.datamonitor.core.Values.SHOULD_SHOW_BATTERY_OPTIMISATION_ERROR;
 import static com.drnoob.datamonitor.core.Values.TYPE_MOBILE_DATA;
+import static com.drnoob.datamonitor.core.Values.UPDATE_NOTIFICATION_CHANNEL;
 import static com.drnoob.datamonitor.core.Values.UPDATE_VERSION;
 import static com.drnoob.datamonitor.core.Values.USAGE_ACCESS_DISABLED;
 import static com.drnoob.datamonitor.ui.fragments.AppDataUsageFragment.getAppContext;
@@ -104,11 +65,72 @@ import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceMobileDat
 import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getDeviceWifiDataUsage;
 import static com.drnoob.datamonitor.utils.NetworkStatsHelper.getTetheringDataUsage;
 
+import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.PowerManager;
+import android.os.RemoteException;
+import android.provider.Settings;
+import android.text.Spannable;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.RemoteViews;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.NotificationCompat;
+import androidx.navigation.NavController;
+import androidx.navigation.NavDestination;
+import androidx.navigation.fragment.NavHostFragment;
+import androidx.navigation.ui.NavigationUI;
+import androidx.preference.PreferenceManager;
+
+import com.drnoob.datamonitor.BuildConfig;
+import com.drnoob.datamonitor.R;
+import com.drnoob.datamonitor.Widget.DataUsageWidget;
+import com.drnoob.datamonitor.adapters.data.AppDataUsageModel;
+import com.drnoob.datamonitor.core.task.DatabaseHandler;
+import com.drnoob.datamonitor.databinding.ActivityMainBinding;
+import com.drnoob.datamonitor.utils.CrashReporter;
+import com.drnoob.datamonitor.utils.SharedPreferences;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.elevation.SurfaceColors;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
-
-    ActivityMainBinding binding;
-
     private static final String TAG = MainActivity.class.getSimpleName();
+    ActivityMainBinding binding;
 
     public static List<AppDataUsageModel> mAppsList = new ArrayList<>();
     public static List<AppDataUsageModel> mUserAppsList = new ArrayList<>();
@@ -116,11 +138,20 @@ public class MainActivity extends AppCompatActivity {
     public static int value;
     public static String themeSwitch;
     private static Boolean isDataLoading = false;
+    private static Boolean refreshAppDataUsage = false;
+
+    public static Boolean getRefreshAppDataUsage() {
+        return refreshAppDataUsage;
+    }
+
+    public static void setRefreshAppDataUsage(Boolean refreshAppDataUsage) {
+        MainActivity.refreshAppDataUsage = refreshAppDataUsage;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setTheme(MainActivity.this);
-
+        MainActivity.setTheme(MainActivity.this);
+        Thread.setDefaultUncaughtExceptionHandler(new CrashReporter(MainActivity.this));
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             if (!isReadPhoneStateGranted(MainActivity.this)) {
                 startActivity(new Intent(this, SetupActivity.class)
@@ -134,13 +165,15 @@ public class MainActivity extends AppCompatActivity {
         String countryCode = SharedPreferences.getUserPrefs(this).getString(APP_COUNTRY_CODE, "");
         if (languageCode.equals("null")) {
             setLanguage(this, "en", countryCode);
-        }
-        else {
+        } else {
             setLanguage(this, languageCode, countryCode);
         }
 
-        refreshService(this);
-
+        try {
+            refreshService(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         try {
             if (isUsageAccessGranted(MainActivity.this)) {
 
@@ -148,6 +181,11 @@ public class MainActivity extends AppCompatActivity {
                 setTheme(R.style.Theme_DataMonitor);
                 setContentView(binding.getRoot());
                 setSupportActionBar(binding.mainToolbar);
+                binding.mainToolbar.setBackgroundColor(SurfaceColors.SURFACE_2.getColor(this));
+                getWindow().setStatusBarColor(SurfaceColors.SURFACE_2.getColor(this));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                    getWindow().setNavigationBarColor(SurfaceColors.SURFACE_2.getColor(this));
+                }
 
                 SharedPreferences.getUserPrefs(this).edit().putBoolean(SETUP_COMPLETED, true).apply();
 
@@ -155,19 +193,7 @@ public class MainActivity extends AppCompatActivity {
                     getSupportActionBar().setTitle(getString(R.string.app_name));
                 }
 
-//                AppBarConfiguration configuration = new AppBarConfiguration.Builder(R.id.bottom_menu_home,
-//                        R.id.bottom_menu_setup, R.id.bottom_menu_app_data_usage, R.id.bottom_menu_settings, R.id.system_data_usage).build();
-
-
-
-
-//                NavController controller = Navigation.findNavController(this, R.id.main_nav_host_fragment);
-
-
-
-
-
-                NavHostFragment navHostFragment = (NavHostFragment)  getSupportFragmentManager().findFragmentById(R.id.main_nav_host_fragment);
+                NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.main_nav_host_fragment);
                 NavController controller = navHostFragment.getNavController();
                 controller.addOnDestinationChangedListener(new NavController.OnDestinationChangedListener() {
                     @Override
@@ -178,17 +204,11 @@ public class MainActivity extends AppCompatActivity {
 
                 NavigationUI.setupWithNavController(binding.bottomNavigationView, controller);
 
-
-
-
-//        NavigationUI.setupActionBarWithNavController(this, controller, configuration);
-//        NavigationUI.setupWithNavController(binding.bottomNavigationView, controller);
-
                 DatabaseHandler databaseHandler = new DatabaseHandler(MainActivity.this);
                 if (databaseHandler.getUsageList() != null && databaseHandler.getUsageList().size() > 0) {
 
                 } else {
-                    FetchApps fetchApps = new FetchApps(this);
+                    MainActivity.FetchApps fetchApps = new MainActivity.FetchApps(this);
                     fetchApps.execute();
 
                 }
@@ -210,39 +230,97 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (value != DATA_USAGE_SYSTEM) {
                     if (!isDataLoading()) {
-                        LoadData loadData = new LoadData(MainActivity.this, SESSION_TODAY, TYPE_MOBILE_DATA);
+                        MainActivity.LoadData loadData = new MainActivity.LoadData(MainActivity.this, SESSION_TODAY, TYPE_MOBILE_DATA);
                         loadData.execute();
                     }
                 }
 
-//                binding.bottomNavigationView.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
-//                    @Override
-//                    public boolean onNavigationItemSelected(@NonNull @NotNull MenuItem item) {
-//                        if (item.getItemId() == binding.bottomNavigationView.getSelectedItemId()) {
-//                            return false;
-//                        }
-//                        if (item.getItemId() == R.id.bottom_menu_home) {
-//                            getSupportActionBar().setTitle(getString(R.string.app_name));
-//                        } else {
-//                            getSupportActionBar().setTitle(item.getTitle());
-//                        }
-//                        NavigationUI.onNavDestinationSelected(item, controller);
-//                        return true;
-//                    }
-//                });
-
-            }
-            else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                    if (!notificationManager.areNotificationsEnabled()) {
+                        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_POST_NOTIFICATIONS);
+                    }
+                }
+            } else {
                 onResume();
             }
         } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
     }
 
-    private void initializeBottomNavBar() {
-        NavHostFragment navHostFragment = (NavHostFragment)  getSupportFragmentManager().findFragmentById(R.id.main_nav_host_fragment);
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_POST_NOTIFICATIONS) {
+            if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                new MaterialAlertDialogBuilder(MainActivity.this)
+                        .setTitle(R.string.label_permission_denied)
+                        .setMessage(R.string.notification_permission_denied_body)
+                        .setPositiveButton(R.string.action_grant, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                Intent intent = new Intent();
+                                intent.setAction("android.settings.APP_NOTIFICATION_SETTINGS");
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                intent.putExtra("app_package", getPackageName());
+                                intent.putExtra("app_uid", getApplicationInfo().uid);
+                                intent.putExtra("android.provider.extra.APP_PACKAGE", getPackageName());
+
+                                startActivity(intent);
+                            }
+                        })
+                        .setNegativeButton(R.string.action_cancel, null)
+                        .show();
+            }
+        }
+    }
+
+    private void checkBatteryOptimisationState() {
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
+            // Battery optimisation is disabled
+            Log.d(TAG, "checkBatteryOptimisationState: Disabled");
+        } else {
+            // Battery optimisation is enabled
+            Log.d(TAG, "checkBatteryOptimisationState: Enabled");
+            if (SharedPreferences.getUserPrefs(this).getBoolean(SHOULD_SHOW_BATTERY_OPTIMISATION_ERROR, true)) {
+                new MaterialAlertDialogBuilder(this)
+                        .setTitle(getString(R.string.label_battery_optimisation))
+                        .setMessage(getString(R.string.battery_optimisation_enabled_info))
+                        .setPositiveButton(getString(R.string.disable_battery_optimisation), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                                startActivity(new Intent(MainActivity.this, ContainerActivity.class)
+                                        .putExtra(GENERAL_FRAGMENT_ID, DISABLE_BATTERY_OPTIMISATION_FRAGMENT));
+                            }
+                        })
+                        .setNegativeButton(getString(R.string.label_do_not_show_again), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                SharedPreferences.getUserPrefs(MainActivity.this).edit()
+                                        .putBoolean(SHOULD_SHOW_BATTERY_OPTIMISATION_ERROR, false)
+                                        .apply();
+                                dialog.dismiss();
+                            }
+                        })
+                        .setNeutralButton(getString(R.string.action_cancel), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        })
+                        .show();
+            }
+        }
+    }
+
+    private void initializebottomNavigationViewBar() {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.main_nav_host_fragment);
         NavController controller = navHostFragment.getNavController();
         controller.addOnDestinationChangedListener(new NavController.OnDestinationChangedListener() {
             @Override
@@ -251,7 +329,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });   // working
 
-        NavigationUI.setupWithNavController(binding.bottomNavigationView, controller);  // working
+//        NavigationUI.setupWithNavController(binding.bottomNavigationViewigationView, controller);  // working
     }
 
 
@@ -262,32 +340,65 @@ public class MainActivity extends AppCompatActivity {
         if (destination.equalsIgnoreCase(getString(R.string.home))) {
             // Home Fragment
             getSupportActionBar().setTitle(getString(R.string.app_name));
-        }
-        else if (destination.equalsIgnoreCase(getString(R.string.setup))) {
+        } else if (destination.equalsIgnoreCase(getString(R.string.setup))) {
             // Setup Fragment
             getSupportActionBar().setTitle(getString(R.string.setup));
-        }
-        else if (destination.equalsIgnoreCase(getString(R.string.app_data_usage))) {
+        } else if (destination.equalsIgnoreCase(getString(R.string.app_data_usage))) {
             // App data usage Fragment
             getSupportActionBar().setTitle(getString(R.string.app_data_usage));
-        }
-        else if (destination.equalsIgnoreCase(getString(R.string.network_diagnostics))) {
+        } else if (destination.equalsIgnoreCase(getString(R.string.network_diagnostics))) {
             // Network diagnostics Fragment
             getSupportActionBar().setTitle(getString(R.string.network_diagnostics));
-        }
-        else {
+        } else {
             // Unknown Fragment
         }
 
     }
 
 
-
     @Override
     protected void onStart() {
         super.onStart();
         verifyAppVersion();
-//        initializeBottomNavBar();
+//        initializebottomNavigationViewBar();
+
+        if (!PreferenceManager.getDefaultSharedPreferences(MainActivity.this)
+                .getBoolean(ALARM_PERMISSION_DENIED, false)) {
+            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (!alarmManager.canScheduleExactAlarms()) {
+                    new MaterialAlertDialogBuilder(this)
+                            .setTitle(getString(R.string.error_alarm_permission_denied))
+                            .setMessage(getString(R.string.error_alarm_permission_denied_dialog_summary))
+                            .setCancelable(false)
+                            .setPositiveButton(getString(R.string.action_grant), new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    Intent intent = new Intent();
+                                    intent.setAction(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    dialog.dismiss();
+                                    startActivity(intent);
+                                }
+                            })
+                            .setNegativeButton(getString(R.string.action_cancel), new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                }
+                            })
+                            .setOnDismissListener(new DialogInterface.OnDismissListener() {
+                                @Override
+                                public void onDismiss(DialogInterface dialog) {
+                                    PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit()
+                                            .putBoolean(ALARM_PERMISSION_DENIED, true)
+                                            .apply();
+                                }
+                            })
+                            .show();
+                }
+            }
+        }
     }
 
     @Override
@@ -318,6 +429,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        try {
+            checkBatteryOptimisationState();
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -358,6 +474,7 @@ public class MainActivity extends AppCompatActivity {
             case R.id.toolbar_settings:
                 startActivity(new Intent(MainActivity.this, ContainerActivity.class)
                         .putExtra(GENERAL_FRAGMENT_ID, BOTTOM_NAVBAR_ITEM_SETTINGS));
+//                startActivity(new Intent(MainActivity.this, MainActivity.class));
                 break;
         }
         return super.onOptionsItemSelected(item);
@@ -373,18 +490,42 @@ public class MainActivity extends AppCompatActivity {
         NotificationChannel appWarningChannel = new NotificationChannel(APP_DATA_USAGE_WARNING_CHANNEL_ID, APP_DATA_USAGE_WARNING_CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_HIGH);
         NotificationChannel networkSignalChannel = new NotificationChannel(NETWORK_SIGNAL_CHANNEL_ID, NETWORK_SIGNAL_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW);
+                NotificationManager.IMPORTANCE_HIGH);
+        NotificationChannel otherChannel = new NotificationChannel(OTHER_NOTIFICATION_CHANNEL_ID, OTHER_NOTIFICATION_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH);
         warningChannel.enableVibration(true);
         warningChannel.enableLights(true);
         appWarningChannel.enableVibration(true);
         appWarningChannel.enableLights(true);
+        Uri sound = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/" + R.raw.silent);
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .build();
+//        networkSignalChannel.setSound(sound, attributes);
+        networkSignalChannel.setSound(Uri.EMPTY, null);
+        networkSignalChannel.setShowBadge(false);
+        networkSignalChannel.enableVibration(false);
+        networkSignalChannel.enableLights(false);
+        networkSignalChannel.setBypassDnd(true);
+        otherChannel.enableVibration(true);
+        otherChannel.enableLights(true);
+
         List<NotificationChannel> channels = new ArrayList<>();
         channels.add(usageChannel);
         channels.add(warningChannel);
         channels.add(appWarningChannel);
         channels.add(networkSignalChannel);
+        channels.add(otherChannel);
+
 
         NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (PreferenceManager.getDefaultSharedPreferences(MainActivity.this)
+                .getBoolean(UPDATE_NOTIFICATION_CHANNEL, true)) {
+            notificationManager.deleteNotificationChannel("NetworkSignal.Notification");
+            PreferenceManager.getDefaultSharedPreferences(MainActivity.this).edit()
+                    .putBoolean(UPDATE_NOTIFICATION_CHANNEL, false)
+                    .apply();
+        }
         notificationManager.createNotificationChannels(channels);
     }
 
@@ -469,7 +610,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
@@ -525,7 +665,13 @@ public class MainActivity extends AppCompatActivity {
 
                                 // multiplied by 2 just to increase progress a bit.
                                 Double progress = ((total.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
-                                model.setProgress(progress.intValue());
+                                int progressInt;
+                                if (progress != null) {
+                                    progressInt = progress.intValue();
+                                } else {
+                                    progressInt = 0;
+                                }
+                                model.setProgress(progressInt);
 
                                 mSystemAppsList.add(model);
                             }
@@ -556,7 +702,13 @@ public class MainActivity extends AppCompatActivity {
                                 Long deviceTotal = getDeviceWifiDataUsage(mContext, session)[2];
 
                                 Double progress = ((total.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
-                                model.setProgress(progress.intValue());
+                                int progressInt;
+                                if (progress != null) {
+                                    progressInt = progress.intValue();
+                                } else {
+                                    progressInt = 0;
+                                }
+                                model.setProgress(progressInt);
 
                                 mSystemAppsList.add(model);
                             }
@@ -566,8 +718,7 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
                     }
-                }
-                else {
+                } else {
                     if (isAppInstalled(mContext, currentData.getPackageName())) {
                         if (type == TYPE_MOBILE_DATA) {
                             try {
@@ -588,7 +739,13 @@ public class MainActivity extends AppCompatActivity {
                                     Long deviceTotal = getDeviceMobileDataUsage(mContext, session, date)[2];
 
                                     Double progress = ((total.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
-                                    model.setProgress(progress.intValue());
+                                    int progressInt;
+                                    if (progress != null) {
+                                        progressInt = progress.intValue();
+                                    } else {
+                                        progressInt = 0;
+                                    }
+                                    model.setProgress(progressInt);
 
                                     mUserAppsList.add(model);
                                 }
@@ -618,7 +775,13 @@ public class MainActivity extends AppCompatActivity {
                                     Long deviceTotal = getDeviceWifiDataUsage(mContext, session)[2];
 
                                     Double progress = ((total.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
-                                    model.setProgress(progress.intValue());
+                                    int progressInt;
+                                    if (progress != null) {
+                                        progressInt = progress.intValue();
+                                    } else {
+                                        progressInt = 0;
+                                    }
+                                    model.setProgress(progressInt);
 
                                     mUserAppsList.add(model);
                                 }
@@ -648,7 +811,13 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     deviceTotal = getDeviceMobileDataUsage(mContext, session, date)[2];
                     Double progress = ((total.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
-                    model.setProgress(progress.intValue());
+                    int progressInt;
+                    if (progress != null) {
+                        progressInt = progress.intValue();
+                    } else {
+                        progressInt = 0;
+                    }
+                    model.setProgress(progressInt);
 
                 } catch (ParseException e) {
                     e.printStackTrace();
@@ -659,7 +828,13 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     deviceTotal = getDeviceWifiDataUsage(mContext, session)[2];
                     Double progress = ((total.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
-                    model.setProgress(progress.intValue());
+                    int progressInt;
+                    if (progress != null) {
+                        progressInt = progress.intValue();
+                    } else {
+                        progressInt = 0;
+                    }
+                    model.setProgress(progressInt);
 
                 } catch (ParseException e) {
                     e.printStackTrace();
@@ -679,6 +854,12 @@ public class MainActivity extends AppCompatActivity {
                     tetheringTotal = totalTetheringSent + totalTetheringReceived;
 
                     Double tetheringProgress = ((tetheringTotal.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
+                    int tetheringProgressInt;
+                    if (tetheringProgress != null) {
+                        tetheringProgressInt = tetheringProgress.intValue();
+                    } else {
+                        tetheringProgressInt = 0;
+                    }
 
                     model = new AppDataUsageModel();
                     model.setAppName(mContext.getString(R.string.label_tethering));
@@ -687,7 +868,7 @@ public class MainActivity extends AppCompatActivity {
                     model.setReceivedMobile(totalTetheringReceived);
                     model.setSession(session);
                     model.setType(type);
-                    model.setProgress(tetheringProgress.intValue());
+                    model.setProgress(tetheringProgressInt);
 
                     if (tetheringTotal > 0) {
                         mUserAppsList.add(model);
@@ -703,6 +884,12 @@ public class MainActivity extends AppCompatActivity {
                 deletedAppsTotal = totalDeletedAppsSent + totalDeletedAppsReceived;
 
                 Double deletedProgress = ((deletedAppsTotal.doubleValue() / deviceTotal.doubleValue()) * 100) * 2;
+                int deletedProgressInt;
+                if (deletedProgress != null) {
+                    deletedProgressInt = deletedProgress.intValue();
+                } else {
+                    deletedProgressInt = 0;
+                }
 
                 model = new AppDataUsageModel();
                 model.setAppName(mContext.getString(R.string.label_removed));
@@ -711,12 +898,11 @@ public class MainActivity extends AppCompatActivity {
                 model.setReceivedMobile(totalDeletedAppsReceived);
                 model.setSession(session);
                 model.setType(type);
-                model.setProgress(deletedProgress.intValue());
+                model.setProgress(deletedProgressInt);
 
                 if (deletedAppsTotal > 0) {
                     mUserAppsList.add(model);
                 }
-
 
                 Collections.sort(mUserAppsList, new Comparator<AppDataUsageModel>() {
                     @Override
@@ -755,14 +941,23 @@ public class MainActivity extends AppCompatActivity {
             super.onPostExecute(o);
             isDataLoading = false;
             if (getAppContext() != null) {
-                onDataLoaded();
+                onDataLoaded(getAppContext());
             } else {
 
             }
-            FetchApps fetchApps = new FetchApps(mContext);
+            MainActivity.FetchApps fetchApps = new MainActivity.FetchApps(mContext);
             fetchApps.execute();
         }
 
+    }
+
+    private void verifyAppVersion() {
+        String updateVersion = SharedPreferences.getAppPrefs(MainActivity.this)
+                .getString(UPDATE_VERSION, BuildConfig.VERSION_NAME);
+        if (updateVersion.equalsIgnoreCase(BuildConfig.VERSION_NAME)) {
+            SharedPreferences.getAppPrefs(MainActivity.this)
+                    .edit().remove(UPDATE_VERSION).apply();
+        }
     }
 
     public static void setTheme(Activity activity) {
@@ -785,14 +980,5 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
-    }
-
-    private void verifyAppVersion() {
-        String updateVersion = SharedPreferences.getAppPrefs(MainActivity.this)
-                .getString(UPDATE_VERSION, BuildConfig.VERSION_NAME);
-        if (updateVersion.equalsIgnoreCase(BuildConfig.VERSION_NAME)) {
-            SharedPreferences.getAppPrefs(MainActivity.this)
-                    .edit().remove(UPDATE_VERSION).apply();
-        }
     }
 }

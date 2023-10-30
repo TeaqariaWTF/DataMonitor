@@ -19,37 +19,6 @@
 
 package com.drnoob.datamonitor.ui.activities;
 
-import android.Manifest;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.PowerManager;
-import android.provider.Settings;
-import android.text.TextUtils;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-
-import com.drnoob.datamonitor.R;
-import com.drnoob.datamonitor.databinding.ActivitySetupBinding;
-import com.drnoob.datamonitor.utils.SharedPreferences;
-import com.google.android.material.snackbar.Snackbar;
-
-import org.jetbrains.annotations.NotNull;
-
-import java.lang.reflect.InvocationTargetException;
-
 import static com.drnoob.datamonitor.Common.isReadPhoneStateGranted;
 import static com.drnoob.datamonitor.Common.isUsageAccessGranted;
 import static com.drnoob.datamonitor.Common.setLanguage;
@@ -61,6 +30,42 @@ import static com.drnoob.datamonitor.core.Values.SETUP_COMPLETED;
 import static com.drnoob.datamonitor.core.Values.SETUP_VALUE;
 import static com.drnoob.datamonitor.core.Values.USAGE_ACCESS_DISABLED;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.text.TextUtils;
+import android.view.LayoutInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.splashscreen.SplashScreen;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+
+import com.drnoob.datamonitor.R;
+import com.drnoob.datamonitor.databinding.ActivitySetupBinding;
+import com.drnoob.datamonitor.utils.CrashReporter;
+import com.drnoob.datamonitor.utils.SharedPreferences;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textview.MaterialTextView;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.lang.reflect.InvocationTargetException;
+
 public class SetupActivity extends AppCompatActivity {
     private static final String TAG = SetupActivity.class.getSimpleName();
 
@@ -68,7 +73,11 @@ public class SetupActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            SplashScreen.installSplashScreen(this);
+        }
         super.onCreate(savedInstanceState);
+        Thread.setDefaultUncaughtExceptionHandler(new CrashReporter(SetupActivity.this));
         String languageCode = SharedPreferences.getUserPrefs(this).getString(APP_LANGUAGE_CODE, "null");
         String countryCode = SharedPreferences.getUserPrefs(this).getString(APP_COUNTRY_CODE, "");
         if (languageCode.equals("null")) {
@@ -80,9 +89,18 @@ public class SetupActivity extends AppCompatActivity {
         binding = ActivitySetupBinding.inflate(getLayoutInflater());
         setTheme(R.style.Theme_DataMonitor);
         setContentView(binding.getRoot());
-        getWindow().setStatusBarColor(getColor(R.color.background));
+        setSupportActionBar(binding.setupToolbar);
+        getSupportActionBar().setTitle(null);
+//        getWindow().setStatusBarColor(getColor(R.color.background));
+//        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+//        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         binding.setupProgress.setSaveEnabled(true);
         binding.setupProgress.setProgressFromPrevious(true);
+//        binding.appBar.setStatusBarForeground(MaterialShapeDrawable
+//                .createWithElevationOverlay(SetupActivity.this));
 
         getSupportFragmentManager().registerFragmentLifecycleCallbacks(new FragmentManager.FragmentLifecycleCallbacks() {
             @Override
@@ -90,22 +108,27 @@ public class SetupActivity extends AppCompatActivity {
                 super.onFragmentStarted(fm, f);
                 if (f instanceof SetupWelcomeFragment) {
                     binding.setupProgress.setProgress(25);
+                    getSupportActionBar().setDisplayHomeAsUpEnabled(false);
                 }
                 else if (f instanceof DisableBatteryOptimisationFragment) {
                     binding.setupProgress.setProgress(60);
+                    getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                 }
                 else {
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                         if (f instanceof RequestUsagePermissionFragment) {
                             binding.setupProgress.setProgress(80);
+                            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                         }
                         else if (f instanceof RequestPhoneStatePermissionFragment) {
                             binding.setupProgress.setProgress(100);
+                            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                         }
                     }
                     else {
                         if (f instanceof RequestUsagePermissionFragment) {
                             binding.setupProgress.setProgress(100);
+                            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                         }
                     }
                 }
@@ -168,6 +191,14 @@ public class SetupActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            onBackPressed();
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         try {
@@ -211,7 +242,7 @@ public class SetupActivity extends AppCompatActivity {
                     getActivity().getSupportFragmentManager().beginTransaction().setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left,
                             R.anim.slide_in_left, R.anim.slide_out_right)
                             .replace(R.id.setup_fragment_host,
-                            new DisableBatteryOptimisationFragment()).addToBackStack("battery").commit();
+                                    new DisableBatteryOptimisationFragment()).addToBackStack("battery").commit();
                 }
             });
 
@@ -274,11 +305,18 @@ public class SetupActivity extends AppCompatActivity {
         public View onCreateView(@NonNull @NotNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
             View view = inflater.inflate(R.layout.fragment_disable_battery_optimisation, container, false);
 
-            TextView disableBatteryOptimisation = view.findViewById(R.id.disable_battery_optimisation);
-            TextView extraOptimisation = view.findViewById(R.id.extra_optimisation);
-            TextView oemSettings = view.findViewById(R.id.oem_battery_settings);
-            TextView oemSkinWarning = view.findViewById(R.id.oem_skin_warning);
-            TextView next = view.findViewById(R.id.next);
+            MaterialTextView disableBatteryOptimisation = view.findViewById(R.id.disable_battery_optimisation);
+            MaterialTextView extraOptimisation = view.findViewById(R.id.extra_optimisation);
+            MaterialTextView oemSettings = view.findViewById(R.id.oem_battery_settings);
+            MaterialTextView oemSkinWarning = view.findViewById(R.id.oem_skin_warning);
+            MaterialButton next = view.findViewById(R.id.next);
+
+            if (getActivity() instanceof SetupActivity) {
+                // Do nothing :)
+            }
+            else {
+                next.setVisibility(View.GONE);
+            }
 
             if (TextUtils.isEmpty(getSystemProperty("ro.miui.ui.version.code"))) {
                 oemSkinWarning.setVisibility(View.GONE);
@@ -303,7 +341,7 @@ public class SetupActivity extends AppCompatActivity {
             }
 
             String oem = Build.BRAND;
-            
+
             extraOptimisation.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -398,10 +436,7 @@ public class SetupActivity extends AppCompatActivity {
             PowerManager powerManager = (PowerManager) getContext().getSystemService(POWER_SERVICE);
             if (powerManager.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
                 disableBatteryOptimisation.setEnabled(false);
-                disableBatteryOptimisation.setBackgroundResource(R.drawable.button_primary_default_disabled);
                 disableBatteryOptimisation.setText(R.string.battery_optimisation_disabled);
-                disableBatteryOptimisation.setCompoundDrawables(null, null, null, null);
-                disableBatteryOptimisation.setPadding(0, 0, 0, 0);
                 disableBatteryOptimisation.setTextColor(getResources().getColor(R.color.text_secondary, null));
             }
         }
@@ -425,8 +460,8 @@ public class SetupActivity extends AppCompatActivity {
     }
 
     public static class RequestUsagePermissionFragment extends Fragment {
-        TextView next;
-        TextView btnPrimary;
+        MaterialButton next;
+        MaterialButton btnPrimary;
         TextView btnSecondary;
         public RequestUsagePermissionFragment() {
 
@@ -594,9 +629,9 @@ public class SetupActivity extends AppCompatActivity {
 
 
     public static class RequestPhoneStatePermissionFragment extends Fragment {
-        TextView btnPrimary;
+        MaterialButton btnPrimary;
         TextView btnSecondary;
-        TextView next;
+        MaterialButton next;
         public RequestPhoneStatePermissionFragment() {
 
         }
@@ -635,8 +670,7 @@ public class SetupActivity extends AppCompatActivity {
             btnPrimary.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.READ_PHONE_STATE},
-                            REQUEST_READ_PHONE_STATE);
+                    requestPermissions(new String[]{Manifest.permission.READ_PHONE_STATE}, REQUEST_READ_PHONE_STATE);
                 }
             });
 
@@ -670,7 +704,21 @@ public class SetupActivity extends AppCompatActivity {
         @Override
         public void onRequestPermissionsResult(int requestCode, @NonNull @NotNull String[] permissions, @NonNull @NotNull int[] grantResults) {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-            onResume();
+            if (requestCode == REQUEST_READ_PHONE_STATE) {
+                if (grantResults.length > 0 &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Permission granted
+                    onResume();
+                }
+                else {
+                    Snackbar snackbar = Snackbar.make(getView(), R.string.error_permission_denied, Snackbar.LENGTH_SHORT);
+                    FrameLayout footer = getView().findViewById(R.id.usage_permission_footer);
+                    if (footer.getVisibility() == View.VISIBLE) {
+                        snackbar.setAnchorView(R.id.usage_permission_footer);
+                    }
+                    snackbar.show();
+                }
+            }
         }
 
         @Override
@@ -685,14 +733,6 @@ public class SetupActivity extends AppCompatActivity {
                 btnPrimary.setTextColor(getResources().getColor(R.color.text_secondary, null));
                 startActivity(new Intent(getContext(), MainActivity.class));
                 getActivity().finish();
-            }
-            else {
-                Snackbar snackbar = Snackbar.make(getView(), R.string.error_permission_denied, Snackbar.LENGTH_SHORT);
-                FrameLayout footer = getView().findViewById(R.id.usage_permission_footer);
-                if (footer.getVisibility() == View.VISIBLE) {
-                    snackbar.setAnchorView(R.id.usage_permission_footer);
-                }
-                snackbar.show();
             }
         }
     }
